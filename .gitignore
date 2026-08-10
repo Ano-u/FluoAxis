@@ -1,0 +1,32 @@
+# Codex local work
+.codex_budget_work/
+
+# Build and test outputs
+artifacts/
+[Bb]in/
+[Oo]bj/
+[Tt]est[Rr]esult*/
+coverage*/
+
+# IDE and user-local state
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Package and web dependencies
+packages/
+node_modules/
+
+# Local environment and logs
+.env
+.env.*
+*.log
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
