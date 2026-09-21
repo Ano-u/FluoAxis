@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>FluoAxis.ProjectFormat.Tests</RootNamespace>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <OutputType>Exe</OutputType>
+    <!-- CA1707: underscore test method names are the established repo test
+         style (see FluoAxis.Domain.Tests). -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- xunit.v3 runs on Microsoft.Testing.Platform (its own executable entry
+         point). The legacy VSTest stack (Microsoft.NET.Test.Sdk +
+         xunit.runner.visualstudio) is rejected by MTP on the .NET 10 SDK, so
+         run tests with "dotnet run" or by executing the built test
+         executable directly. -->
+    <PackageReference Include="xunit.v3" />
+    <ProjectReference Include="..\..\src\FluoAxis.ProjectFormat\FluoAxis.ProjectFormat.csproj" />
+    <ProjectReference Include="..\..\src\FluoAxis.Domain\FluoAxis.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

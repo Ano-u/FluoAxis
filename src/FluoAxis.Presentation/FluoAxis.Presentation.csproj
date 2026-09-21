@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>FluoAxis.Presentation</RootNamespace>
+    <Description>FluoAxis presentation state and frontend development adapters.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FluoAxis.Contracts\FluoAxis.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

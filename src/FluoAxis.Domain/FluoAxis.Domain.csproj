@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>FluoAxis.Domain</RootNamespace>
+    <Description>FluoAxis domain model: value objects, method snapshots, run state, scientific entities.</Description>
+  </PropertyGroup>
+
+</Project>

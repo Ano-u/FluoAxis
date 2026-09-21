@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <RootNamespace>FluoAxis.Visualization</RootNamespace>
+    <Description>Secure WebView2 adapter for the local FluoAxis PlotHost.</Description>
+    <UseWinUI>true</UseWinUI>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Microsoft.Web.WebView2" />
+    <ProjectReference Include="..\FluoAxis.PlotProtocol\FluoAxis.PlotProtocol.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-policy:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up .NET from global.json
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Verify repository path policy
+        shell: pwsh
+        run: ./build/Verify-RepositoryPolicy.ps1
+
+      - name: Verify scientific source boundary
+        shell: pwsh
+        run: ./build/Verify-ScientificSourceBoundary.ps1
+
+      - name: Restore locked dependencies
+        run: dotnet restore FluoAxis.slnx --locked-mode
+
+      - name: Generate dependency, license, and SBOM evidence
+        shell: pwsh
+        run: ./build/Generate-DependencyEvidence.ps1
+
+      - name: Build
+        run: dotnet build FluoAxis.slnx --no-restore
+
+      - name: Test local PlotHost
+        run: node --test web/FluoAxis.PlotHost/plot-host.test.js
+
+      - name: Test with fail-closed discovery
+        shell: pwsh
+        run: dotnet test --test-modules '**/bin/Debug/net10.0*/**/*Tests.dll' --root-directory . --minimum-expected-tests 603

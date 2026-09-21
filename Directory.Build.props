@@ -1,0 +1,23 @@
+<Project>
+
+  <!--
+    FluoAxis repository-wide build properties.
+    Applied to every project in the solution.
+
+    TargetFramework is declared per project:
+      - pure libraries and tests: net10.0
+      - Windows App SDK / WinUI projects: net10.0-windows10.0.22621.0
+  -->
+
+  <PropertyGroup>
+    <LangVersion>14.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+</Project>

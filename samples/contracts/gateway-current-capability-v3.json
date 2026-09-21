@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": 3,
+  "scope": "current-capability-baseline",
+  "scenarios": [
+    { "id": "create-get-empty", "outcome": "success", "state": "new", "allowedActions": ["import"], "sourceFileCount": 0 },
+    { "id": "create-replay", "outcome": "success" },
+    { "id": "request-id-conflict", "outcome": "failure", "errorCode": "SYSTEM_REQUEST_ID_CONFLICT" },
+    { "id": "run-not-found", "outcome": "failure", "errorCode": "PROJECT_RUN_NOT_FOUND" },
+    { "id": "unsupported-version", "outcome": "failure", "errorCode": "SYSTEM_UNSUPPORTED_CONTRACT_VERSION" },
+    { "id": "pre-canceled", "outcome": "canceled" },
+    { "id": "stale-revision", "outcome": "failure", "errorCode": "SYSTEM_STALE_RUN_REVISION" },
+    { "id": "invalid-run-state", "outcome": "failure", "errorCode": "SYSTEM_INVALID_RUN_STATE" },
+    { "id": "import-capability-unavailable", "outcome": "failure", "errorCode": "SYSTEM_CAPABILITY_UNAVAILABLE" },
+    { "id": "managed-import-inspection", "outcome": "success", "stateAfterInspection": "new", "candidateRegionCount": 1 }
+  ]
+}

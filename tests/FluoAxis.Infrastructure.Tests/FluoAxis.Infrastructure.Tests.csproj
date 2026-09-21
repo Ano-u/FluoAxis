@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>FluoAxis.Infrastructure.Tests</RootNamespace>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <OutputType>Exe</OutputType>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <ProjectReference Include="..\..\src\FluoAxis.Application\FluoAxis.Application.csproj" />
+    <ProjectReference Include="..\..\src\FluoAxis.Contracts\FluoAxis.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\FluoAxis.Domain\FluoAxis.Domain.csproj" />
+    <ProjectReference Include="..\..\src\FluoAxis.Import\FluoAxis.Import.csproj" />
+    <ProjectReference Include="..\..\src\FluoAxis.Infrastructure\FluoAxis.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

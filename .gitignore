@@ -1,6 +1,9 @@
 # Codex local work
 .codex_budget_work/
 
+# Local extraction scratch (regenerable docx text)
+extract/
+
 # Build and test outputs
 artifacts/
 [Bb]in/

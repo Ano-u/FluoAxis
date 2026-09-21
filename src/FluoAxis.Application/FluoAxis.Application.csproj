@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>FluoAxis.Application</RootNamespace>
+    <Description>FluoAxis application layer: use cases, run state machine, orchestration, ports.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FluoAxis.Domain\FluoAxis.Domain.csproj" />
+    <ProjectReference Include="..\FluoAxis.Analysis\FluoAxis.Analysis.csproj" />
+    <ProjectReference Include="..\FluoAxis.Contracts\FluoAxis.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

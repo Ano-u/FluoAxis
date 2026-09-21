@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "approvalStatus": "candidate-unapproved",
+  "methodId": "BRAF-V600E-Research",
+  "methodVersion": "1.0",
+  "methodSnapshotHash": "861f7304b0183e591a997a2e53881866119d9a9938ae13f5e1c2e7900ef80bd9",
+  "notice": "Synthetic engineering evidence only. Scientific and engineering dual approval is required before promotion to Golden.",
+  "cases": [
+    { "id": "GD-001", "scenario": "full-chain-positive" },
+    { "id": "GD-002", "scenario": "full-chain-negative" },
+    { "id": "GD-003", "scenario": "ntc-fail" },
+    { "id": "GD-004", "scenario": "positive-plateau-fail" },
+    { "id": "GD-005", "scenario": "wt-fail" },
+    { "id": "GD-006", "scenario": "lqc-fail" },
+    { "id": "GD-007", "scenario": "replicate-conflict" },
+    { "id": "GD-008", "scenario": "missing-endpoint" },
+    { "id": "GD-009", "scenario": "invalid-denominator" },
+    { "id": "GD-010", "scenario": "dr-prime-exact-boundary" },
+    { "id": "GD-011", "scenario": "relative-range-exact-boundary" },
+    { "id": "GD-012", "scenario": "insufficient-plateau-window" },
+    { "id": "GD-018", "scenario": "endpoint-tolerance-inclusive-boundary" },
+    { "id": "GD-019", "scenario": "endpoint-tolerance-outside-boundary" },
+    { "id": "GD-020", "scenario": "scale-invariance" }
+  ]
+}

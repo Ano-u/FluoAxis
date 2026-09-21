@@ -1,0 +1,32 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FluoAxis.Analysis/FluoAxis.Analysis.csproj" />
+    <Project Path="src/FluoAxis.App/FluoAxis.App.csproj" />
+    <Project Path="src/FluoAxis.Application/FluoAxis.Application.csproj" />
+    <Project Path="src/FluoAxis.Contracts/FluoAxis.Contracts.csproj" />
+    <Project Path="src/FluoAxis.Domain/FluoAxis.Domain.csproj" />
+    <Project Path="src/FluoAxis.Import/FluoAxis.Import.csproj" />
+    <Project Path="src/FluoAxis.Infrastructure/FluoAxis.Infrastructure.csproj" />
+    <Project Path="src/FluoAxis.Persistence/FluoAxis.Persistence.csproj" />
+    <Project Path="src/FluoAxis.PlotProtocol/FluoAxis.PlotProtocol.csproj" />
+    <Project Path="src/FluoAxis.Presentation/FluoAxis.Presentation.csproj" />
+    <Project Path="src/FluoAxis.Visualization/FluoAxis.Visualization.csproj" />
+    <Project Path="src/FluoAxis.ProjectFormat/FluoAxis.ProjectFormat.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FluoAxis.Architecture.Tests/FluoAxis.Architecture.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Analysis.Tests/FluoAxis.Analysis.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Application.Tests/FluoAxis.Application.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Contracts.Tests/FluoAxis.Contracts.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Domain.Tests/FluoAxis.Domain.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Golden.Tests/FluoAxis.Golden.Tests.csproj" />
+    <Project Path="tests/FluoAxis.GatewayContract.Tests/FluoAxis.GatewayContract.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Import.Tests/FluoAxis.Import.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Integration.Tests/FluoAxis.Integration.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Infrastructure.Tests/FluoAxis.Infrastructure.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Persistence.Tests/FluoAxis.Persistence.Tests.csproj" />
+    <Project Path="tests/FluoAxis.PlotProtocol.Tests/FluoAxis.PlotProtocol.Tests.csproj" />
+    <Project Path="tests/FluoAxis.ProjectFormat.Tests/FluoAxis.ProjectFormat.Tests.csproj" />
+    <Project Path="tests/FluoAxis.Visualization.Tests/FluoAxis.Visualization.Tests.csproj" />
+  </Folder>
+</Solution>

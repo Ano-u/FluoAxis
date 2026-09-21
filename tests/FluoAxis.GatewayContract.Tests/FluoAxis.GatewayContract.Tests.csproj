@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>FluoAxis.GatewayContract.Tests</RootNamespace>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <ProjectReference Include="..\..\src\FluoAxis.Application\FluoAxis.Application.csproj" />
+    <ProjectReference Include="..\..\src\FluoAxis.Presentation\FluoAxis.Presentation.csproj" />
+  </ItemGroup>
+
+</Project>

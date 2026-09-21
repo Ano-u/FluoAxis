@@ -1,0 +1,12 @@
+{
+  "name": "fluoaxis-plot-host",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "test": "node --test plot-host.test.js"
+  },
+  "dependencies": {
+    "plotly.js-dist-min": "4.0.0"
+  }
+}

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>FluoAxis.Persistence</RootNamespace>
+    <Description>FluoAxis SQLite persistence: schema, migrations, repositories, transactional writes.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <ProjectReference Include="..\FluoAxis.Domain\FluoAxis.Domain.csproj" />
+    <ProjectReference Include="..\FluoAxis.Application\FluoAxis.Application.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FluoAxis PlotHost</title>
+  <link rel="stylesheet" href="plot-host.css">
+</head>
+<body>
+  <main id="plot" aria-label="Scientific plot"></main>
+  <section id="fallback" role="status" hidden>3D rendering is unavailable on this system.</section>
+  <script src="vendor/plotly.min.js"></script>
+  <script src="plot-host.js"></script>
+</body>
+</html>
