@@ -80,6 +80,7 @@ public sealed partial class ApplicationGateway
         {
             Source = prepared.Value!.Source,
             Signals = prepared.Value.Series,
+            Mapping = prepared.Value.Mapping,
         };
 
         // Imported is a real state distinct from Mapped: the signals now

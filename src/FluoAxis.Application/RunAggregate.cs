@@ -192,6 +192,15 @@ public sealed class InMemoryProjectRunRepository : IProjectRunRepository
         }
     }
 
+    public ValueTask<PreparedDataMapping?> GetMappingAsync(Guid runId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (gate)
+        {
+            return ValueTask.FromResult(payloads.TryGetValue(runId, out RunWorkflowPayload? payload) ? payload.Mapping : null);
+        }
+    }
+
     public ValueTask<IReadOnlyList<WellAssignment>> GetAssignmentsAsync(Guid runId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -251,6 +260,7 @@ public sealed class InMemoryProjectRunRepository : IProjectRunRepository
     {
         Source = incoming.Source ?? existing.Source,
         Signals = incoming.Signals ?? existing.Signals,
+        Mapping = incoming.Mapping ?? existing.Mapping,
         Assignments = incoming.Assignments ?? existing.Assignments,
         Calibration = incoming.Calibration ?? existing.Calibration,
         Control = incoming.Control ?? existing.Control,
@@ -276,10 +286,11 @@ internal static class RunSnapshotPolicy
 
     public static IReadOnlyList<string> AllowedActions(RunState state) => state switch
     {
-        RunState.New => [RunAction.Import],
-        RunState.Imported => [RunAction.ConfirmMapping, RunAction.ViewExplorer],
-        // Mapped alone does not prove that a complete plate assignment has been persisted.
-        RunState.Mapped => [RunAction.AssignWells, RunAction.ViewExplorer],
+        // ConfirmMapping commits the staged source and advances New -> Imported.
+        RunState.New => [RunAction.Import, RunAction.ConfirmMapping],
+        RunState.Imported => [RunAction.AssignWells, RunAction.ViewExplorer],
+        // A mapped run has persisted roles; calibration is its next command.
+        RunState.Mapped => [RunAction.RunCalibration, RunAction.ViewExplorer],
         RunState.CalibrationPassed => [RunAction.RunControlQc, RunAction.ViewExplorer],
         RunState.ReadyForAnalysis => [RunAction.AnalyzeSamples, RunAction.ViewExplorer],
         RunState.Analyzed => [RunAction.Export, RunAction.ViewExplorer],

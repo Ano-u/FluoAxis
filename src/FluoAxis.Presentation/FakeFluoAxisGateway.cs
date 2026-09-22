@@ -85,7 +85,7 @@ public sealed class FakeFluoAxisGateway : IFluoAxisGateway
                 runId,
                 0,
                 RunStateNames.New,
-                [RunAction.Import],
+                [RunAction.Import, RunAction.ConfirmMapping],
                 blockingIssues: [],
                 warningIssues: [],
                 method.MethodId,

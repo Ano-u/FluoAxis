@@ -31,6 +31,11 @@ public sealed partial class SqliteProjectRunRepository
             await WriteSignalsAsync(connection, transaction, request.RunId, signals, cancellationToken).ConfigureAwait(false);
         }
 
+        if (payload.Mapping is { } mapping)
+        {
+            await WriteMappingAsync(connection, transaction, request.RunId, mapping, cancellationToken).ConfigureAwait(false);
+        }
+
         if (payload.Assignments is { } assignments)
         {
             await WriteAssignmentsAsync(connection, transaction, request.RunId, assignments, cancellationToken).ConfigureAwait(false);
@@ -117,6 +122,35 @@ public sealed partial class SqliteProjectRunRepository
                 ticksParameter.Value = point.Elapsed.Ticks;
                 rfuParameter.Value = point.Rfu;
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static async Task WriteMappingAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        Guid runId,
+        PreparedDataMapping mapping,
+        CancellationToken cancellationToken)
+    {
+        foreach (PreparedChannelRegion region in new[] { mapping.Fam, mapping.Rox })
+        {
+            int channel = (int)region.Channel;
+            await ExecuteAsync(connection, transaction, """
+                INSERT INTO channel_mapping(run_id, channel, sheet_name, header_row_index, time_column_index)
+                VALUES($runId, $channel, $sheet, $header, $time);
+                """, cancellationToken,
+                ("$runId", Text(runId)), ("$channel", channel), ("$sheet", region.SheetName),
+                ("$header", region.HeaderRowIndex), ("$time", region.TimeColumnIndex)).ConfigureAwait(false);
+
+            foreach ((int columnIndex, WellId well) in region.WellColumns)
+            {
+                await ExecuteAsync(connection, transaction, """
+                    INSERT INTO well_column_mapping(run_id, channel, column_index, well_row, well_column)
+                    VALUES($runId, $channel, $column, $row, $wellColumn);
+                    """, cancellationToken,
+                    ("$runId", Text(runId)), ("$channel", channel), ("$column", columnIndex),
+                    ("$row", well.Row - 'A'), ("$wellColumn", well.Column)).ConfigureAwait(false);
             }
         }
     }
@@ -350,6 +384,61 @@ public sealed partial class SqliteProjectRunRepository
         }
 
         return series;
+    }
+
+    public async ValueTask<PreparedDataMapping?> GetMappingAsync(Guid runId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        Dictionary<int, (string Sheet, int Header, int Time, Dictionary<int, WellId> Wells)> regions = [];
+
+        await using (SqliteCommand command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                SELECT channel, sheet_name, header_row_index, time_column_index
+                FROM channel_mapping WHERE run_id = $runId ORDER BY channel;
+                """;
+            command.Parameters.AddWithValue("$runId", Text(runId));
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                regions[reader.GetInt32(0)] = (reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), []);
+            }
+        }
+
+        if (!regions.TryGetValue((int)FluorescenceChannel.Fam, out var fam)
+            || !regions.TryGetValue((int)FluorescenceChannel.Rox, out var rox))
+        {
+            return null;
+        }
+
+        await using (SqliteCommand command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                SELECT channel, column_index, well_row, well_column
+                FROM well_column_mapping WHERE run_id = $runId ORDER BY channel, column_index;
+                """;
+            command.Parameters.AddWithValue("$runId", Text(runId));
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                int channel = reader.GetInt32(0);
+                var well = new WellId((char)('A' + reader.GetInt32(2)), reader.GetInt32(3));
+                if (channel == (int)FluorescenceChannel.Fam)
+                {
+                    fam.Wells[reader.GetInt32(1)] = well;
+                }
+                else if (channel == (int)FluorescenceChannel.Rox)
+                {
+                    rox.Wells[reader.GetInt32(1)] = well;
+                }
+            }
+        }
+
+        return new PreparedDataMapping(
+            runId,
+            new PreparedChannelRegion(FluorescenceChannel.Fam, fam.Sheet, fam.Header, fam.Time, fam.Wells),
+            new PreparedChannelRegion(FluorescenceChannel.Rox, rox.Sheet, rox.Header, rox.Time, rox.Wells));
     }
 
     public async ValueTask<IReadOnlyList<WellAssignment>> GetAssignmentsAsync(Guid runId, CancellationToken cancellationToken)

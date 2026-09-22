@@ -1,7 +1,7 @@
 ---
 id: FT-20260912-001
 kind: feature
-status: stub
+status: validated
 area: application-orchestration
 stage: phase-2
 tasks:
@@ -88,15 +88,15 @@ Not applicable. This is a new Application capability over a verified-but-unreach
 
 ## Implementation
 
-_To be completed._
+The Application workflow now reaches the deterministic Analysis engine through the signal preparation port, persists source/signals/mapping/assignments and stage outcomes through repository mutations, and enforces the run-state gate. The current action vocabulary is aligned with command preconditions: `New` exposes import and confirm mapping, `Imported` exposes assignment, and `Mapped` exposes calibration.
 
 ## Validation
 
-_To be completed._
+Validated with `dotnet build FluoAxis.slnx --no-restore`; Application tests 33/33 and SQLite Integration tests 3/3 pass. The approved Golden candidate suite remains 16/16 from the current checkout, while the candidate manifest is explicitly unapproved and does not establish external scientific validity.
 
 ## Review outcomes
 
-_To be completed._
+Manual review completed. Source hash revalidation and mapping snapshot persistence are tracked in paired fixes `FX-20260921-001` and `FX-20260921-002`. Public stage command atomicity across intermediate states remains a separate open P0 fix tracked by `FX-20260913-001`.
 
 ## Follow-ups
 

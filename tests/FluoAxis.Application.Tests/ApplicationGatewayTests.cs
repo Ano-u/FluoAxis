@@ -24,7 +24,7 @@ public sealed class ApplicationGatewayTests
         Assert.Equal(0, created.Value.RunRevision);
         Assert.Equal(RunStateNames.New, created.Value.RunDomainState);
         Assert.True(fetched.IsSuccess);
-        Assert.Equal([RunAction.Import], fetched.Value!.AllowedActions);
+        Assert.Equal([RunAction.Import, RunAction.ConfirmMapping], fetched.Value!.AllowedActions);
         Assert.Equal("BRAF-V600E-Research", fetched.Value.MethodId);
         Assert.Equal("1.0", fetched.Value.MethodVersion);
         Assert.Equal(64, fetched.Value.MethodSnapshotHash.Length);
@@ -265,9 +265,9 @@ public sealed class ApplicationGatewayTests
 
     public static TheoryData<RunState, string[]> AllowedActionCases => new()
     {
-        { RunState.New, [RunAction.Import] },
-        { RunState.Imported, [RunAction.ConfirmMapping, RunAction.ViewExplorer] },
-        { RunState.Mapped, [RunAction.AssignWells, RunAction.ViewExplorer] },
+        { RunState.New, [RunAction.Import, RunAction.ConfirmMapping] },
+        { RunState.Imported, [RunAction.AssignWells, RunAction.ViewExplorer] },
+        { RunState.Mapped, [RunAction.RunCalibration, RunAction.ViewExplorer] },
         { RunState.Calibrating, [RunAction.ViewExplorer] },
         { RunState.CalibrationFailed, [RunAction.ViewExplorer] },
         { RunState.CalibrationPassed, [RunAction.RunControlQc, RunAction.ViewExplorer] },
@@ -335,6 +335,9 @@ public sealed class ApplicationGatewayTests
 
         public ValueTask<IReadOnlyList<SignalSeries>> GetSignalsAsync(Guid runId, CancellationToken cancellationToken) =>
             ValueTask.FromResult<IReadOnlyList<SignalSeries>>([]);
+
+        public ValueTask<PreparedDataMapping?> GetMappingAsync(Guid runId, CancellationToken cancellationToken) =>
+            ValueTask.FromResult<PreparedDataMapping?>(null);
 
         public ValueTask<IReadOnlyList<WellAssignment>> GetAssignmentsAsync(Guid runId, CancellationToken cancellationToken) =>
             ValueTask.FromResult<IReadOnlyList<WellAssignment>>([]);

@@ -29,7 +29,7 @@ public sealed class GatewayConformanceTests
         Assert.True(fetched.IsSuccess);
         Assert.Equal(0, fetched.Value!.Revision);
         Assert.Equal(RunStateNames.New, fetched.Value.DomainState);
-        Assert.Equal([RunAction.Import], fetched.Value.AllowedActions);
+        Assert.Equal([RunAction.Import, RunAction.ConfirmMapping], fetched.Value.AllowedActions);
         Assert.Empty(fetched.Value.SourceFiles);
         Assert.Empty(fetched.Value.BlockingIssues);
         Assert.Empty(fetched.Value.WarningIssues);

@@ -1,7 +1,7 @@
 ---
 id: FT-20260913-001
 kind: feature
-status: stub
+status: validated
 area: governance-and-delivery
 stage: cross-phase
 tasks:
@@ -74,15 +74,15 @@ Not applicable. This is a traceability and delivery-governance change.
 
 ## Implementation
 
-_To be completed._
+The audit selected the Application-to-Analysis workflow as the next executable slice. The current checkout now records the implementation evidence, action contract alignment, source identity revalidation, and mapping snapshot persistence in the paired changes.
 
 ## Validation
 
-_To be completed._
+Current focused evidence: solution build passes with SDK 10.0.400; Application 33/33, Gateway Contract 22/22, Infrastructure 29/29, and SQLite Integration 3/3 pass. Repository path policy and scientific source boundary gates pass. Scientific Method and Golden approval remain open by design.
 
 ## Review outcomes
 
-_To be completed._
+Manual review completed. The repository still must not claim a production-ready Guided UI, approved Golden Dataset, report/export completion, or closed stage-command atomicity until those separate gates are implemented and validated.
 
 ## Follow-ups
 

@@ -1,6 +1,7 @@
 namespace FluoAxis.Infrastructure;
 
 using System.Text;
+using System.Security.Cryptography;
 using FluoAxis.Application;
 using FluoAxis.Contracts;
 using FluoAxis.Domain;
@@ -91,6 +92,15 @@ public sealed class ManagedSignalPreparationAdapter : ISignalPreparationPort
             if (stream.Length != request.Source.SizeBytes)
             {
                 return Result<PreparedRunSignals>.Fail(SizeMismatch(request.Source.SizeBytes, stream.Length));
+            }
+
+            // The staged hash is the source identity used by the Run. Recheck
+            // it immediately before parsing so a same-size replacement cannot
+            // silently become the formal analysis input.
+            HexHash actualHash = await ComputeSha256Async(stream, cancellationToken).ConfigureAwait(false);
+            if (!string.Equals(actualHash.Value, request.Source.Sha256, StringComparison.Ordinal))
+            {
+                return Result<PreparedRunSignals>.Fail(SourceChanged());
             }
 
             bool hasZipMagic = await HasZipMagicAsync(stream, cancellationToken).ConfigureAwait(false);
@@ -187,6 +197,26 @@ public sealed class ManagedSignalPreparationAdapter : ISignalPreparationPort
         return read == 4 && header.AsSpan().SequenceEqual("PK\x03\x04"u8);
     }
 
+    private static async Task<HexHash> ComputeSha256Async(Stream stream, CancellationToken cancellationToken)
+    {
+        stream.Position = 0;
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        byte[] buffer = new byte[64 * 1024];
+        while (true)
+        {
+            int read = await stream.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                break;
+            }
+
+            hash.AppendData(buffer, 0, read);
+        }
+
+        stream.Position = 0;
+        return HexHash.FromBytes(hash.GetHashAndReset());
+    }
+
     private static async Task<bool> LooksLikeTextAsync(Stream stream, CancellationToken cancellationToken)
     {
         byte[] sample = new byte[4096];
@@ -253,6 +283,11 @@ public sealed class ManagedSignalPreparationAdapter : ISignalPreparationPort
         ErrorCodes.ImportManagedResourceSizeMismatch, ErrorSeverity.Blocking,
         "The managed import resource size changed after selection.",
         $"declaredBytes={declared};actualBytes={actual}");
+
+    private static AppError SourceChanged() => new(
+        ErrorCodes.ImportSourceChanged, ErrorSeverity.Blocking,
+        "The managed import resource changed after it was staged.",
+        "sourceChangedBeforeRead");
 
     private static AppError UnsafeResource() => new(
         ErrorCodes.ImportManagedResourceUnsafe, ErrorSeverity.Blocking,

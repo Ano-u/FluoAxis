@@ -21,7 +21,8 @@ public sealed class WorkbenchViewModelTests
         Assert.Equal(RunStateNames.New, viewModel.RunState);
         Assert.Equal("BRAF-V600E-Research v1.0", viewModel.MethodIdentity);
         Assert.True(viewModel.IsStageAvailable(viewModel.GuidedStages[0]));
-        Assert.All(viewModel.GuidedStages.Skip(1), stage => Assert.False(viewModel.IsStageAvailable(stage)));
+        Assert.True(viewModel.IsStageAvailable(viewModel.GuidedStages[1]));
+        Assert.All(viewModel.GuidedStages.Skip(2), stage => Assert.False(viewModel.IsStageAvailable(stage)));
     }
 
     [Fact]
@@ -101,7 +102,7 @@ public sealed class WorkbenchViewModelTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(GatewayResult.Ok(new RunSnapshotDto(
-                RunId, 0, RunStateNames.New, [RunAction.Import], [], [],
+                RunId, 0, RunStateNames.New, [RunAction.Import, RunAction.ConfirmMapping], [], [],
                 "BRAF-V600E-Research", "1.0", new string('a', 64), [], updatedUtc: DateTimeOffset.UnixEpoch)));
         }
 

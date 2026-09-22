@@ -197,7 +197,7 @@ public sealed class SqlitePersistenceTests
 
         Assert.True(reopened.IsSuccess);
         Assert.Equal(RunStateNames.New, reopened.Value!.DomainState);
-        Assert.Equal([RunAction.Import], reopened.Value.AllowedActions);
+        Assert.Equal([RunAction.Import, RunAction.ConfirmMapping], reopened.Value.AllowedActions);
     }
 
     [Fact]

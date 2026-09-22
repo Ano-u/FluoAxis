@@ -94,6 +94,9 @@ public sealed record RunWorkflowPayload
     /// <summary>Set by the import/mapping stage.</summary>
     public IReadOnlyList<SignalSeries>? Signals { get; init; }
 
+    /// <summary>Set by the import/mapping stage and retained for reopen.</summary>
+    public PreparedDataMapping? Mapping { get; init; }
+
     /// <summary>Set by the well-assignment stage.</summary>
     public IReadOnlyList<WellAssignment>? Assignments { get; init; }
 
@@ -122,6 +125,8 @@ public interface IRunWorkflowReader
     ValueTask<PreparedSourceIdentity?> GetSourceAsync(Guid runId, CancellationToken cancellationToken);
 
     ValueTask<IReadOnlyList<SignalSeries>> GetSignalsAsync(Guid runId, CancellationToken cancellationToken);
+
+    ValueTask<PreparedDataMapping?> GetMappingAsync(Guid runId, CancellationToken cancellationToken);
 
     ValueTask<IReadOnlyList<WellAssignment>> GetAssignmentsAsync(Guid runId, CancellationToken cancellationToken);
 

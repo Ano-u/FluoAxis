@@ -51,7 +51,7 @@ public sealed class SqliteWorkflowRoundTripTests
 
         // The run reached Analyzed and its signals are persisted with the
         // schema required verbatim by requirements doc §18.3.
-        Assert.Equal(12L, await ScalarAsync(connection, "SELECT run_state FROM run_record;"));
+        Assert.Equal((long)RunState.Analyzed, await ScalarAsync(connection, "SELECT run_state FROM run_record;"));
         Assert.True(await ScalarAsync(connection, "SELECT count(*) FROM signal_point;") > 0);
         Assert.Equal(1L, await ScalarAsync(connection, "SELECT count(*) FROM source_file;"));
         Assert.Equal(8L, await ScalarAsync(connection, "SELECT count(*) FROM well_assignment;"));
@@ -101,6 +101,15 @@ public sealed class SqliteWorkflowRoundTripTests
             PreparedSourceIdentity? source = await reopened.GetSourceAsync(runId, CancellationToken.None);
             Assert.NotNull(source);
             Assert.Equal("synthetic-run.xlsx", source!.DisplayName);
+
+            PreparedDataMapping? mapping = await reopened.GetMappingAsync(runId, CancellationToken.None);
+            Assert.NotNull(mapping);
+            Assert.Equal(0, mapping!.Fam.HeaderRowIndex);
+            Assert.Equal(0, mapping.Fam.TimeColumnIndex);
+            Assert.Equal("FAM", mapping.Fam.SheetName);
+            Assert.Equal("A1", mapping.Fam.WellColumns[1].ToString());
+            Assert.Equal("ROX", mapping.Rox.SheetName);
+            Assert.Equal("A1", mapping.Rox.WellColumns[1].ToString());
         }
     }
 
