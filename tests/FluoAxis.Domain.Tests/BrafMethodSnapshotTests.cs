@@ -5,12 +5,13 @@ using Xunit;
 public class BrafMethodSnapshotTests
 {
     [Fact]
-    public void Default_carries_the_V1_0_method_specification_values()
+    public void Default_carries_the_V1_1_channel_specific_method_values()
     {
         var snapshot = BrafMethodSnapshot.Default;
 
         Assert.Equal("BRAF-V600E-Research", snapshot.MethodId);
-        Assert.Equal("1.0", snapshot.Version);
+        Assert.Equal("1.1", snapshot.Version);
+        Assert.True(snapshot.UsesRoxEndpointFm);
         Assert.Equal(120.0, snapshot.EndpointMinutes);
         Assert.Equal(15.0, snapshot.EndpointToleranceSeconds);
 
@@ -58,7 +59,7 @@ public class BrafMethodSnapshotTests
         {
             Classification = new ClassificationSpec(drPrimeThresholdInclusive: 0.5),
         };
-        var changedVersion = BrafMethodSnapshot.Default with { Version = "1.1" };
+        var changedVersion = BrafMethodSnapshot.Default with { Version = "1.0" };
         var changedWindow = BrafMethodSnapshot.Default with
         {
             Plateau = new PlateauSpec(startMinutes: 80.0),
@@ -78,6 +79,16 @@ public class BrafMethodSnapshotTests
     public void Default_is_a_shared_immutable_instance()
     {
         Assert.Same(BrafMethodSnapshot.Default, BrafMethodSnapshot.Default);
+    }
+
+    [Fact]
+    public void Legacy_method_hash_is_unchanged_and_does_not_select_the_new_rox_rule()
+    {
+        var legacy = new BrafMethodSnapshot(version: "1.0");
+        Assert.False(legacy.UsesRoxEndpointFm);
+        Assert.True(legacy.IsSupportedVersion);
+        Assert.Equal("861f7304b0183e591a997a2e53881866119d9a9938ae13f5e1c2e7900ef80bd9", legacy.ComputeCanonicalHash());
+        Assert.False(new BrafMethodSnapshot(version: "future").IsSupportedVersion);
     }
 
     [Fact]

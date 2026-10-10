@@ -16,22 +16,23 @@ public sealed record CalibrationInput
 }
 
 /// <summary>
-/// Per-well, per-channel outcome of one 100% positive well: its plateau
-/// evaluation, its Fm_i (the window mean, populated only when the plateau
-/// passed), and the endpoint point index selected for that series
-/// (Method-Spec §5).
+/// Per-channel Positive100 result. FAM and legacy ROX retain qualified
+/// plateau statistics; Method 1.1 ROX has no plateau and takes Fm from its
+/// actual selected endpoint. No synthetic plateau verdict is produced.
 /// </summary>
 public sealed record PositiveWellResult
 {
     public WellId Well { get; }
     public FluorescenceChannel Channel { get; }
-    public PlateauEvaluation Plateau { get; }
+    public PlateauEvaluation? Plateau { get; }
+    public string FmSource => Plateau is null ? "endpoint" : "plateauMean";
+    public QcStatus QcStatus => Plateau?.QcStatus ?? (Fm is { } value && double.IsFinite(value) ? QcStatus.Pass : QcStatus.Invalid);
     public double? Fm { get; }
     public int? EndpointPointIndex { get; }
     public SignalPoint? Endpoint { get; }
     public IReadOnlyList<EvaluatedPoint> WindowPoints { get; }
 
-    public PositiveWellResult(WellId well, FluorescenceChannel channel, PlateauEvaluation plateau, double? fm, int? endpointPointIndex,
+    public PositiveWellResult(WellId well, FluorescenceChannel channel, PlateauEvaluation? plateau, double? fm, int? endpointPointIndex,
         SignalPoint? endpoint = null, IReadOnlyList<EvaluatedPoint>? windowPoints = null)
     {
         Well = well;

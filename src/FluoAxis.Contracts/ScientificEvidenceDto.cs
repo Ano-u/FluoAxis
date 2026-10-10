@@ -72,8 +72,10 @@ public sealed record WellScientificEvidenceDto
     public SourceWindowEvidenceDto? Window { get; }
     public IReadOnlyList<TraceValueDto> Values { get; }
     public IReadOnlyList<string> ErrorCodes { get; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? FmSource { get; }
     public WellScientificEvidenceDto(string well, string channel, string role, string status, SourcePointEvidenceDto endpoint,
-        SourceWindowEvidenceDto? window, IReadOnlyList<TraceValueDto> values, IReadOnlyList<string> errorCodes)
+        SourceWindowEvidenceDto? window, IReadOnlyList<TraceValueDto> values, IReadOnlyList<string> errorCodes, string? fmSource = null)
     {
         ContractGuard.RequireWellId(well); ContractGuard.RequireChannel(channel);
         if (!WellRoleNames.ToDomainRole.ContainsKey(role)) throw new ArgumentException("Invalid evidence role.", nameof(role));
@@ -81,6 +83,10 @@ public sealed record WellScientificEvidenceDto
         ArgumentNullException.ThrowIfNull(endpoint); ArgumentNullException.ThrowIfNull(values); ArgumentNullException.ThrowIfNull(errorCodes);
         if (endpoint.Well != well || endpoint.Channel != channel || values.Count > 64 || errorCodes.Count > 64) throw new ArgumentException("Inconsistent well evidence.");
         foreach (string code in errorCodes) ContractGuard.RequireErrorCode(code);
+        if (fmSource is not (null or "plateauMean" or "endpoint") || fmSource is not null && role != WellRoleNames.Positive100
+            || fmSource == "endpoint" && window is not null || fmSource == "plateauMean" && window is null)
+            throw new ArgumentException("Invalid Fm source evidence.", nameof(fmSource));
+        FmSource = fmSource;
         Well = well; Channel = channel; Role = role; Status = status; Endpoint = endpoint; Window = window;
         Values = Array.AsReadOnly(values.ToArray()); ErrorCodes = Array.AsReadOnly(errorCodes.ToArray());
     }

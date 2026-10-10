@@ -35,7 +35,7 @@ public sealed class ApplicationGatewayTests
         Assert.True(fetched.IsSuccess);
         Assert.Equal([RunAction.Import, RunAction.ConfirmMapping], fetched.Value!.AllowedActions);
         Assert.Equal("BRAF-V600E-Research", fetched.Value.MethodId);
-        Assert.Equal("1.0", fetched.Value.MethodVersion);
+        Assert.Equal("1.1", fetched.Value.MethodVersion);
         Assert.Equal(64, fetched.Value.MethodSnapshotHash.Length);
         Assert.Empty(fetched.Value.SourceFiles);
     }

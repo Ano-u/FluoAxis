@@ -28,11 +28,16 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
 {
     private static readonly FluorescenceChannel[] Channels = [FluorescenceChannel.Fam, FluorescenceChannel.Rox];
 
-    /// <summary>Stage 1: 100% positive plateau QC, run Fm, NTC background QC, run Fb.</summary>
+    private static AppError UnsupportedMethod() => StageError(AnalysisErrorCodes.MethodVersionUnsupported,
+        "This engine supports Method 1.0 and 1.1 only; stored results remain available without recalculation.");
+
+    /// <summary>Stage 1: versioned Positive100 Fm, NTC background QC, run Fb.</summary>
     public Result<CalibrationResult> Calibrate(CalibrationInput input, BrafMethodSnapshot method)
     {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(method);
+
+        if (!method.IsSupportedVersion) return Result<CalibrationResult>.Fail(UnsupportedMethod());
 
         AppError? identityError = ValidateWellIdentity(input.Positive100Wells.Concat(input.NtcWells));
         if (identityError is not null) return Result<CalibrationResult>.Fail(identityError);
@@ -63,7 +68,8 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
             return Result<CalibrationResult>.Fail(endpointError);
         }
 
-        // Step 2: per-well plateau QC and Fm_i (Method-Spec §5).
+        // Step 2: FAM plateau mean; ROX uses the endpoint in V1.1 and
+        // the original plateau path in V1.0. All required wells contribute.
         Dictionary<FluorescenceChannel, List<double>> fmContributions = [];
         bool plateauFailed = false;
 
@@ -72,6 +78,16 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
             foreach (FluorescenceChannel channel in Channels)
             {
                 SignalSeries series = well.Channels[channel];
+                int endpointIndex = positiveEndpointIndices[(int)channel][well.Well];
+                if (channel == FluorescenceChannel.Rox && method.UsesRoxEndpointFm)
+                {
+                    SignalPoint endpoint = series.Points[endpointIndex];
+                    if (!double.IsFinite(endpoint.Rfu))
+                        return Result<CalibrationResult>.Fail(WellError(well.Well, channel, ErrorCodes.CalibrationNonFiniteValue, "The ROX Fm endpoint fluorescence is not finite."));
+                    Collect(fmContributions, channel, endpoint.Rfu);
+                    positiveResults.Add(new PositiveWellResult(well.Well, channel, null, endpoint.Rfu, endpointIndex, endpoint));
+                    continue;
+                }
                 IReadOnlyList<SignalPoint> window = AnalysisMath.SelectWindow(series.Points, method);
                 double[] values = new double[window.Count];
                 for (int i = 0; i < window.Count; i++)
@@ -103,7 +119,6 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
                     Collect(fmContributions, channel, fm.Value);
                 }
 
-                int endpointIndex = positiveEndpointIndices[(int)channel][well.Well];
                 int windowStart = 0;
                 while (series.Points[windowStart].Elapsed != window[0].Elapsed) windowStart++;
                 positiveResults.Add(new PositiveWellResult(well.Well, channel, plateau, fm, endpointIndex,
@@ -271,6 +286,8 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
         ArgumentNullException.ThrowIfNull(calibration);
         ArgumentNullException.ThrowIfNull(method);
 
+        if (!method.IsSupportedVersion) return Result<ControlQcResult>.Fail(UnsupportedMethod());
+
         AppError? identityError = ValidateWellIdentity(input.WtWells.Concat(input.LqcWells));
         if (identityError is not null) return Result<ControlQcResult>.Fail(identityError);
 
@@ -425,6 +442,8 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
         ArgumentNullException.ThrowIfNull(wtReference);
         ArgumentNullException.ThrowIfNull(calibration);
         ArgumentNullException.ThrowIfNull(method);
+
+        if (!method.IsSupportedVersion) return Result<SampleAnalysisResult>.Fail(UnsupportedMethod());
 
         AppError? identityError = ValidateWellIdentity(input.Samples.SelectMany(group => group.Wells));
         if (identityError is not null) return Result<SampleAnalysisResult>.Fail(identityError);
@@ -676,7 +695,7 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
 
         CalculationTrace trace = new(
             traceId: Guid.NewGuid(),
-            algorithm: CalculationTrace.AlgorithmVersion,
+            algorithm: CalculationTrace.AlgorithmFor(method),
             methodSnapshotHash: method.ComputeCanonicalHash(),
             sourceWell: well.Well,
             sourceChannel: FluorescenceChannel.Fam,

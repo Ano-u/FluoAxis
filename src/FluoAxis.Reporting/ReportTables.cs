@@ -89,10 +89,11 @@ internal static class ReportTables
             identities.Add(Row(stage.Stage, "Evaluated Points SHA-256", stage.EvaluatedPointsSha256));
         }
         tables.Add(new("StageIdentity", ["阶段", "身份字段", "已保存值"], identities));
-        tables.Add(new("StageWells", ["阶段", "孔", "通道", "角色", "状态", "端点序号（0起）", "端点 ticks", "端点 Raw RFU", "工作表", "源行（0起）", "源列（0起）"],
+        tables.Add(new("StageWells", ["阶段", "孔", "通道", "角色", "状态", "端点序号（0起）", "端点 ticks", "端点 Raw RFU", "工作表", "源行（0起）", "源列（0起）", "Fm 来源"],
             [.. stages.SelectMany(stage => stage.Wells.Select(well => new[] { T(stage.Stage), T(well.Well), T(well.Channel), T(well.Role), T(well.Status),
                 T(well.Endpoint.PointIndex.ToString(CultureInfo.InvariantCulture)), T(well.Endpoint.ElapsedTicks.ToString(CultureInfo.InvariantCulture)), N(well.Endpoint.RawRfu), T(well.Endpoint.SheetName),
-                T(well.Endpoint.SourceRowIndex?.ToString(CultureInfo.InvariantCulture)), T(well.Endpoint.SourceColumnIndex?.ToString(CultureInfo.InvariantCulture)) }))]));
+                T(well.Endpoint.SourceRowIndex?.ToString(CultureInfo.InvariantCulture)), T(well.Endpoint.SourceColumnIndex?.ToString(CultureInfo.InvariantCulture)),
+                T(well.FmSource switch { "endpoint" => "所选端点", "plateauMean" => "合格平台均值", _ => well.Role == WellRoleNames.Positive100 ? "历史未记录" : "不适用" }) }))]));
         tables.Add(new("StageWindows", ["阶段", "孔", "通道", "窗口起始/min", "窗口结束/min", "首点序号", "末点序号", "实际点数"],
             [.. stages.SelectMany(stage => stage.Wells.Where(well => well.Window is not null).Select(well => new[] { T(stage.Stage), T(well.Well), T(well.Channel),
                 N(well.Window!.StartMinutes), N(well.Window.EndMinutes), T(well.Window.FirstPointIndex.ToString(CultureInfo.InvariantCulture)), T(well.Window.LastPointIndex.ToString(CultureInfo.InvariantCulture)), T(well.Window.PointCount.ToString(CultureInfo.InvariantCulture)) }))]));

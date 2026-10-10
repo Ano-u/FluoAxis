@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="..\..\samples\golden\candidate-manifest-v1.json" Link="Golden\candidate-manifest-v1.json" />
+    <EmbeddedResource Include="..\..\samples\golden\candidate-manifest-v1.1.json" Link="Golden\candidate-manifest-v1.1.json" />
   </ItemGroup>
 
 </Project>

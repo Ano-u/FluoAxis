@@ -27,6 +27,23 @@ public sealed class ScientificReportEvidenceTests
         Assert.Throws<ArgumentException>(() => renderer.CreateSnapshot(WithStage(new string('e', 64)), "1.0", ReportFixture.Created));
     }
 
+    [Fact]
+    public void ReportShowsSavedRoxEndpointFmWithoutInventingPlateauEvidence()
+    {
+        RunEvidenceDto baseline = ReportFixture.Evidence();
+        var identity = new AnalysisInputIdentityDto(baseline.Snapshot.SourceFiles[0].Sha256, new string('c', 64), new string('d', 64), baseline.Snapshot.MethodSnapshotHash, "BRAF-ENGINE-1.1", 2);
+        var well = new WellScientificEvidenceDto("A1", ChannelNames.Rox, WellRoleNames.Positive100, StatusNames.Pass,
+            new("A1", ChannelNames.Rox, 2, TimeSpan.FromMinutes(120).Ticks, 600, "ROX", 3, 1), null, [new("Fm", 600)], [], "endpoint");
+        var evidence = new RunEvidenceDto(baseline.ProjectName, baseline.Snapshot, baseline.Mapping, baseline.Assignments, baseline.Calibration, baseline.Control,
+            baseline.Samples, baseline.Traces, baseline.ProvenanceCompleteness,
+            new([new("calibration", identity, [well], ProvenanceCompletenessNames.StoredComplete)]));
+        var renderer = new ResearchReportRenderer();
+        var snapshot = renderer.CreateSnapshot(evidence, "1.1", ReportFixture.Created);
+        Assert.Equal("endpoint", Assert.Single(Assert.Single(snapshot.Content.Evidence.ScientificEvidence!.Stages).Wells).FmSource);
+        Assert.Contains("所选端点", renderer.RenderHtml(snapshot), StringComparison.Ordinal);
+        Assert.DoesNotContain("relativeRange", renderer.GetCanonicalJson(snapshot), StringComparison.Ordinal);
+    }
+
     private static RunEvidenceDto WithStage(string? sourceHash = null)
     {
         RunEvidenceDto baseline = ReportFixture.Evidence();

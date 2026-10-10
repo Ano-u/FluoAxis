@@ -11,7 +11,8 @@ using Oracle = FluoAxis.Golden.Tests.Reference.IndependentReferenceCalculator;
 public sealed class GoldenCandidateTests
 {
     private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000020");
-    private static readonly BrafMethodSnapshot Method = BrafMethodSnapshot.Default;
+    // Preserve the V1.0 candidate evidence and its historical expected values.
+    private static readonly BrafMethodSnapshot Method = new(version: "1.0");
     private static readonly Oracle.Method ReferenceMethod = new();
     private static readonly BrafAnalysisEngine Engine = new();
 

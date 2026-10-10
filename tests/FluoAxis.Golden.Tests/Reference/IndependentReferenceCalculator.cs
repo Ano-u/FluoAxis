@@ -20,7 +20,8 @@ internal static class IndependentReferenceCalculator
         double NtcMin = -0.05,
         double NtcMax = 0.05,
         double WtMaxExclusive = 0.05,
-        double DrPrimeThresholdInclusive = 0.4);
+        double DrPrimeThresholdInclusive = 0.4,
+        bool RoxFmFromEndpoint = false);
 
     internal sealed record Calibration(
         bool IsValid,
@@ -60,9 +61,14 @@ internal static class IndependentReferenceCalculator
             }
 
             (bool validFam, bool passFam, double famMean, double famRr) = Plateau(well.Fam, method);
-            (bool validRox, bool passRox, double roxMean, double roxRr) = Plateau(well.Rox, method);
+            (bool validRox, bool passRox, double roxMean, double roxRr) = method.RoxFmFromEndpoint
+                ? (true, true, Endpoint(well.Rox, method).Rfu, double.NaN)
+                : Plateau(well.Rox, method);
             firstFamRr ??= famRr;
-            firstRoxRr ??= roxRr;
+            if (!method.RoxFmFromEndpoint)
+            {
+                firstRoxRr ??= roxRr;
+            }
             if (!validFam || !validRox)
             {
                 return Invalid("CALIBRATION_INSUFFICIENT_WINDOW_POINTS");

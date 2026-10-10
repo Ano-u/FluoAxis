@@ -11,7 +11,8 @@ using FluoAxis.Domain;
 public sealed record CalculationTrace
 {
     /// <summary>Algorithm identity of the engine that produced this trace; bump on any semantics change.</summary>
-    public const string AlgorithmVersion = "BRAF-ENGINE-1.0";
+    public const string AlgorithmVersion = "BRAF-ENGINE-1.1";
+    public static string AlgorithmFor(BrafMethodSnapshot method) => method.UsesRoxEndpointFm ? AlgorithmVersion : "BRAF-ENGINE-1.0";
 
     public Guid TraceId { get; }
     public string Algorithm { get; }

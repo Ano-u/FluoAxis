@@ -57,4 +57,4 @@ jobs:
 
       - name: Test with fail-closed discovery
         shell: pwsh
-        run: dotnet test --test-modules '**/bin/Debug/net10.0*/**/*Tests.dll' --root-directory . --minimum-expected-tests 981
+        run: dotnet test --test-modules '**/bin/Debug/net10.0*/**/*Tests.dll' --root-directory . --minimum-expected-tests 1010

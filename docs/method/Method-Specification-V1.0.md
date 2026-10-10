@@ -1,5 +1,7 @@
 # FluoAxis Method Specification — BRAF V600E Research Method V1.0（实现基线草案）
 
+> 历史版本：本文继续定义已保存 Method 1.0 的双通道平台规则，以保持结果复现。2026-10-10 起新 Run 的分通道规则见 `docs/method/Method-Specification-V1.1.md`：FAM 平台均值，ROX 120 min 端点。两版仍为未签字科研草案。
+
 | 项目 | 内容 |
 |---|---|
 | 文档状态 | Implementation draft（实现基线草案，未签字冻结） |

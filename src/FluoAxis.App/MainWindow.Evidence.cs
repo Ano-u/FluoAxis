@@ -39,6 +39,8 @@ public sealed partial class MainWindow
         text.AppendLine(CultureInfo.InvariantCulture, $"输入 SHA-256：{identity.InputSnapshotSha256}\n映射 SHA-256：{identity.MappingSha256}\n源文件 SHA-256：{identity.SourceSha256}");
         if (choice.Stage.EvaluatedPointsSha256 is { } pointHash) text.AppendLine(CultureInfo.InvariantCulture, $"实际计算点 SHA-256：{pointHash}");
         SourcePointEvidenceDto point = well.Endpoint;
+        if (well.FmSource is not null)
+            text.AppendLine(well.FmSource == "endpoint" ? "Fm 来源：阳性对照本通道所选端点；未执行平台 QC。实际采样时间见下方。" : "Fm 来源：阳性对照本通道合格平台均值；实际窗口见下方。");
         text.AppendLine(CultureInfo.InvariantCulture, $"端点：{point.SheetName} · 源行列（0起） {point.SourceRowIndex}/{point.SourceColumnIndex} · 点 {point.PointIndex} · ticks {point.ElapsedTicks} · Raw RFU {FullPrecision(point.RawRfu)}");
         if (well.Window is { } window) text.AppendLine(CultureInfo.InvariantCulture, $"计算窗口：{FullPrecision(window.StartMinutes)}–{FullPrecision(window.EndMinutes)} min · 实际点数 {window.PointCount} · 序号 {window.FirstPointIndex}–{window.LastPointIndex}");
         foreach (TraceValueDto value in well.Values) text.AppendLine(CultureInfo.InvariantCulture, $"{value.Name} = {FullPrecision(value.Value)}");

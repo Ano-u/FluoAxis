@@ -38,6 +38,14 @@ public sealed class ScientificEvidenceRoundTripTests
             Assert.Equal(0, Assert.Single(positive.Values, value => value.Name == "relativeRange").Value);
             Assert.Equal(2, positive.Window!.PointCount); Assert.Equal(1, positive.Window.FirstPointIndex);
             Assert.Equal(3, positive.Endpoint.SourceRowIndex); Assert.Equal(2, positive.Endpoint.SourceColumnIndex);
+            Assert.Equal("1.1", before.Snapshot.MethodVersion);
+            Assert.Equal("plateauMean", positive.FmSource);
+            WellScientificEvidenceDto rox = Assert.Single(calibration.Wells, well => well.Role == WellRoleNames.Positive100 && well.Channel == ChannelNames.Rox);
+            Assert.Equal("endpoint", rox.FmSource);
+            Assert.Null(rox.Window);
+            Assert.Equal(rox.Endpoint.RawRfu, Assert.Single(rox.Values, value => value.Name == "Fm").Value);
+            Assert.DoesNotContain(rox.Values, value => value.Name is "meanRfu" or "relativeRange" or "minimumWindowPoints");
+            Assert.Equal("BRAF-ENGINE-1.1", calibration.Identity.Algorithm);
             AnalysisStageEvidenceDto control = Assert.Single(before.ScientificEvidence.Stages, stage => stage.Stage == "control");
             Assert.Equal(2, control.Wells.Count(well => well.Role == WellRoleNames.WildType));
             Assert.All(before.Traces, trace =>

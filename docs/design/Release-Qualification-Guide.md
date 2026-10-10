@@ -2,7 +2,7 @@
 
 当前方法及 Golden 仍为未批准科研草案。用户授权先完成可签名安装包与可执行的工程验收，没有授权以自签名证书代替受信任发布身份。
 
-最新可运行包为 `artifacts/release/FluoAxis-research-win-x64-20261009-viewport/FluoAxis.App.exe`；2026-10-10 对应未签名包为 `artifacts/release/FluoAxis-msix-20261010-viewport/FluoAxis.Research_1.0.0.0_x64_unsigned.msix`。SHA-256 为 `0407a8c2c878e05df2e4918e2acac98d5080037dd1dbbf920a8cb95bd5308bfb`，98,742,043 字节，554 文件往返校验通过。发布版 15 步真实 UIA 记录位于 `artifacts/desktop-validation/20261009-viewport-release/interaction.json`。
+最新方法 1.1 可运行包为 `artifacts/release/FluoAxis-research-win-x64-20261010-method11-final/FluoAxis.App.exe`；对应未签名包为 `artifacts/release/FluoAxis-msix-20261010-method11/FluoAxis.Research_1.0.0.0_x64_unsigned.msix`。发布版 15 步真实 UIA 记录位于 `artifacts/desktop-validation/20261010-method11-final/interaction.json`，实际 FAM/ROX Fm 数值与来源核对见同目录 `fm-check.json`。包 hash 与 MakeAppx 证据见安装包目录 `package-evidence.json`，方法/兼容记录见 `docs/feature/FT-20261010-002-channel-specific-fm.md`。
 
 ## 可重现构建
 

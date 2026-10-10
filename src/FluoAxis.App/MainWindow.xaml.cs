@@ -680,7 +680,9 @@ public sealed partial class MainWindow : Window, IDisposable
             "mapping" => ("通道与数据映射", "明确确认 FAM / ROX 工作表、表头、时间列和每个孔列。", "确认数据映射"),
             "plate" when savedPlateReadOnly => ("孔位与重复孔", "复核该 Run 已保存的孔角色、Sample ID 和重复孔序号；当前阶段为只读。", "孔位分配已保存 · 只读"),
             "plate" => ("孔位与重复孔", "为每个已映射孔设置角色，明确 Sample ID 与重复孔序号。", "提交孔位分配"),
-            "calibration" => ("校准", "先验证 100% Positive 平台，再独立验证各 NTC 孔。", "运行校准"),
+            "calibration" => ("校准", viewModel.Run?.MethodVersion == "1.1"
+                ? "FAM：阳性对照平台均值；ROX：方法指定端点。随后独立验证各 NTC 孔。"
+                : "按当前运行方法快照校准：先验证 100% Positive 平台，再独立验证各 NTC 孔。", "运行校准"),
             "control" => ("对照质控", "使用已持久化的校准结果评估 WT 与 LQC。", "运行对照质控"),
             "analysis" => ("样本分析", "每孔独立判读后检查重复孔一致性；冲突输出 INVALID。", "分析样本"),
             "results" => ("结果与追溯", "查看样本判读、逐孔数据与计算依据。", "判读已完成"),
@@ -1189,6 +1191,9 @@ public sealed partial class MainWindow : Window, IDisposable
             if (summary is not null)
             {
                 AddResultText($"校准 · {StatusLabel(summary.Status)}", true);
+                AddResultText(viewModel.Run?.MethodVersion == "1.1"
+                    ? "Fm：FAM 取合格平台均值；ROX 取方法指定端点。多阳性孔分别取值后求均值；实际时间与窗口见计算来源。"
+                    : "Fm 按本 Run 保存的方法版本计算；历史 1.0 仍使用双通道平台均值。");
                 AddResultTable(["通道", "Run Fb", "Run Fm"],
                     [["FAM", Number(summary.RunFbFam), Number(summary.RunFmFam)], ["ROX", Number(summary.RunFbRox), Number(summary.RunFmRox)]]);
             }

@@ -3,15 +3,18 @@ namespace FluoAxis.Domain;
 /// <summary>
 /// Immutable snapshot of the BRAF V600E research method parameters.
 /// This record is the single in-code source of the scientific constants;
-/// the default values mirror Method-Specification V1.0 appendix JSON.
+/// numeric defaults retain V1.0 parameters; V1.1 changes only the ROX Fm rule.
 /// </summary>
 public sealed record BrafMethodSnapshot
 {
     public const string DefaultMethodId = "BRAF-V600E-Research";
-    public const string DefaultVersion = "1.0";
+    public const string LegacyVersion = "1.0";
+    public const string DefaultVersion = "1.1";
 
     public string MethodId { get; init; }
     public string Version { get; init; }
+    public bool UsesRoxEndpointFm => Version == DefaultVersion;
+    public bool IsSupportedVersion => Version is LegacyVersion or DefaultVersion;
     public double EndpointMinutes { get; init; }
     /// <summary>Closed tolerance on either side of the endpoint, measured in seconds.</summary>
     public double EndpointToleranceSeconds { get; init; }
@@ -48,7 +51,7 @@ public sealed record BrafMethodSnapshot
         Validate();
     }
 
-    /// <summary>Method V1.0 default parameter set (Method-Specification V1.0 appendix JSON).</summary>
+    /// <summary>Method V1.1 draft: FAM plateau mean, ROX endpoint Fm. Stored V1.0 snapshots retain both plateau means.</summary>
     public static readonly BrafMethodSnapshot Default = new();
 
     /// <summary>

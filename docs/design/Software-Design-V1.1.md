@@ -107,8 +107,8 @@ FluoAxis V1 是 Windows 科研用途双通道荧光分析工作站。Guided Anal
 ### 5.1 固定计算顺序
 
 1. 校验源/映射/孔位/双通道和 Method 身份，选择实际端点及窗口。
-2. 每个 100% Positive 孔、每通道用 90–120 min 实际点计算 `RR=(max-min)/mean`；草案 `RR <= 0.01` 且点数满足 Method 才通过。任一关键孔失败则 Calibration 失败，不能排除后继续。
-3. 每孔通过的窗口均值得到 `Fm_i`；所有 Positive 通过后，按通道确定性顺序求 `Fm_run`。
+2. Method 1.1：每个 100% Positive 的 FAM 通道用 90–120 min 实际点计算 `RR=(max-min)/mean`，草案 `RR <= 0.01` 且点数满足 Method 才通过。任一必需 FAM 平台失败则 Calibration 失败，不能排除后继续。
+3. FAM 的 `Fm_i` 取合格平台均值，ROX 的 `Fm_i` 直接取 120 min 实际端点，不执行 ROX 平台 QC；通过后按通道确定性顺序求 `Fm_run`。历史 Method 1.0 仍使用双通道平台计算，不自动升级。
 4. 每个 NTC 孔取自身 endpoint `Fb_i`，用 `(F(t)-Fb_i)/(Fm_run-Fb_i)` 检查 0–endpoint 全课程实际点；草案区间为 `[-0.05, 0.05]`。全部 NTC 独立通过后才形成 `Fb_run`。
 5. WT 各孔使用 Run Fm/Fb 计算 endpoint Y，草案要求 `mean(Y_FAM)<0.05` 且 `mean(Y_ROX)<0.05`，组均值形成二维参考点。
 6. LQC 每孔计算二维 dr'、单孔方向、重复孔一致性及弱阳性预期。Engine 仅在方向一致后计算组均值；一致阴性仍保存该均值但 QC FAIL/RunInvalid，混合方向的均值为空；只有通过才允许 Sample。Application 不另算均值，历史缺项不回填。

@@ -1,5 +1,7 @@
 # Golden Dataset 设计文档（Wave 3 前置）
 
+> 2026-10-10：旧 `candidate-manifest-v1.json` 固定 Method 1.0 原 hash/期望，新增 `candidate-manifest-v1.1.json` 独立登记 FAM 平台/ROX 端点规则，含 11 个候选 ID 和 128 组独立全链路数值对照。两者仍未获双批准。新规则见 `docs/method/Method-Specification-V1.1.md`。
+
 | 项目 | 内容 |
 |---|---|
 | 状态 | Candidate implemented（未获科研/工程双签，不是 approved Golden） |

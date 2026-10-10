@@ -6,7 +6,9 @@ Windows 原生科研荧光数据分析工作站（Research Use Only）——双�
 
 ## 当前状态
 
-2026-10-10 绘图区更新：当前科研包为 `artifacts/release/FluoAxis-research-win-x64-20261009-viewport/FluoAxis.App.exe`。数据与图形页使用完整可视工作区，设置/数据表按需打开，支持放大/还原；实际 960×720 窗口中画布为 829×461 DIP，放大后为 829×532 DIP。修复三维轴标题裁剪、图表/表格双向选择、清空选择后图点淡化，以及密集图形错误提供 SVG。全套 981/981、PlotHost 12/12、发布版真实 UIA 15 步通过。PNG/SVG 原生保存文件的 3200×1800 尺寸和曲线像素通过验证。资源清单 549 项运行后仍匹配；可签名 MSIX 为 `artifacts/release/FluoAxis-msix-20261010-viewport/FluoAxis.Research_1.0.0.0_x64_unsigned.msix`，MakeAppx 校验与 554 文件 hash 往返通过。保留完整 EXE 同级目录，退出旧窗口后启动新版本。修复记录见 `docs/fix/FX-20261009-002-explorer-selection-export.md` 和 `docs/fix/FX-20261009-003-plot-visible-workspace.md`；当前无证书、方法仍为草案，不能作为正式发布资格通过，签名交接见 `docs/design/Release-Qualification-Guide.md`。
+2026-10-10 方法更新：最新科研 EXE 为 `artifacts/release/FluoAxis-research-win-x64-20261010-method11-final/FluoAxis.App.exe`。新建 Run 使用 Method 1.1 草案：FAM Fm 为通过 RR≤1% 质控的 90–120 min 平台均值；ROX Fm 直接取 120 min 实际端点，不做 ROX 平台 RR/均值。多阳性孔分别取值后求 Run 均值；历史 1.0 方法、hash 和结果保留。要按新规则重算旧文件，请“从此文件重新设置”创建新 Run。1010/1010 回归与发布版 15 步桌面流程通过，实际报告验证 FAM Fm=1000、ROX Fm=600（分别区别于端点1002和平台均值350）。对应可签名包为 `artifacts/release/FluoAxis-msix-20261010-method11/FluoAxis.Research_1.0.0.0_x64_unsigned.msix`。规则与迁移见 `docs/method/Method-Specification-V1.1.md`，变更记录见 `docs/feature/FT-20261010-002-channel-specific-fm.md`。
+
+历史绘图区更新：此前科研包为 `artifacts/release/FluoAxis-research-win-x64-20261009-viewport/FluoAxis.App.exe`。数据与图形页使用完整可视工作区，设置/数据表按需打开，支持放大/还原；实际 960×720 窗口中画布为 829×461 DIP，放大后为 829×532 DIP。修复三维轴标题裁剪、图表/表格双向选择、清空选择后图点淡化，以及密集图形错误提供 SVG。全套 981/981、PlotHost 12/12、发布版真实 UIA 15 步通过。PNG/SVG 原生保存文件的 3200×1800 尺寸和曲线像素通过验证。资源清单 549 项运行后仍匹配；可签名 MSIX 为 `artifacts/release/FluoAxis-msix-20261010-viewport/FluoAxis.Research_1.0.0.0_x64_unsigned.msix`，MakeAppx 校验与 554 文件 hash 往返通过。保留完整 EXE 同级目录，退出旧窗口后启动新版本。修复记录见 `docs/fix/FX-20261009-002-explorer-selection-export.md` 和 `docs/fix/FX-20261009-003-plot-visible-workspace.md`；当前无证书、方法仍为草案，不能作为正式发布资格通过，签名交接见 `docs/design/Release-Qualification-Guide.md`。
 
 2026-10-09 历史绘图修复保留：Plotly 动态样式 CSP、WebView 缓存写入安装目录和另存为同步 UIA RPC 修复记录见 `docs/fix/FX-20261009-001-plot-layout-picker.md`。其滚动页面高度方案已由上述可视工作区布局替代。
 
@@ -18,7 +20,7 @@ UI 沿用浅色/深色/高对比语义配色，突出当前步骤和主按钮，
 
 高 DPI 修复仍保留：原生窗口从 DPI Unaware / 96 DPI / 1.0 倍变为 Per-Monitor V2 / 144 DPI / 1.5 倍。修复依据见 `docs/fix/FX-20261008-001-native-dpi-clarity.md`，本次发布 EXE 再次通过 DPI 清单检查。
 
-科研工程验证版本。当前解决方案包含 13 个生产项目和 15 个测试项目，正式科学参数仍按未批准的 Method 草案执行：
+科研工程验证版本。当前解决方案包含 13 个生产项目和 15 个测试项目，科学参数仍按未批准的 Method 草案执行；新建为 1.1，旧运行保留原快照：
 
 ```text
 src/           Domain → Analysis → Contracts → Application
@@ -47,7 +49,8 @@ Explorer 按孔读取真实双通道 Raw 页（最多 25,000 行），提供虚�
 | `BRAF_V600E_科研判读软件_需求与现代化实现架构_V1.0.md` | 需求冻结基线 |
 | `plan.md` | 实施总计划（阶段、门禁、验证矩阵） |
 | `CLAUDE.md` / `AGENTS.md` | 工程宪法（架构不变量、相对路径 P0 政策） |
-| `docs/method/Method-Specification-V1.0.md` | 判读规则实现契约（代码与测试的科学真源） |
+| `docs/method/Method-Specification-V1.1.md` | 当前分通道 Fm 草案与旧方法兼容规则 |
+| `docs/method/Method-Specification-V1.0.md` | 历史 1.0 判读规则，用于结果复现 |
 | `docs/method/Data-Contract-V1.0.md` | 数据契约与未决科学问题状态表 |
 | `docs/adr/` | 架构决策记录 |
 | `DEPENDENCIES.md` | 依赖登记（固定版本） |
@@ -62,7 +65,7 @@ dotnet restore FluoAxis.slnx --locked-mode
 dotnet build FluoAxis.slnx --no-restore
 ./build/Verify-RepositoryPolicy.ps1
 ./build/Verify-ScientificSourceBoundary.ps1
-dotnet test --test-modules '**/bin/Debug/net10.0*/**/*Tests.dll' --root-directory . --minimum-expected-tests 981
+dotnet test --test-modules '**/bin/Debug/net10.0*/**/*Tests.dll' --root-directory . --minimum-expected-tests 1010
 ```
 
 测试命令使用 .NET 10 Microsoft.Testing.Platform 的模块发现模式；`--minimum-expected-tests` 防止空测试程序集或发现回归被误判为成功。新增或删除测试时必须同步更新该下限。

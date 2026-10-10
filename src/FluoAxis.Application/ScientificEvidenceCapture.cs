@@ -41,7 +41,7 @@ internal sealed class ScientificEvidenceCapture
             }
             writer.WriteEndArray(); writer.WriteEndObject();
         });
-        Identity = new(source.Sha256, mappingHash, inputHash, run.Method.ComputeCanonicalHash(), CalculationTrace.AlgorithmVersion, run.RunRevision);
+        Identity = new(source.Sha256, mappingHash, inputHash, run.Method.ComputeCanonicalHash(), CalculationTrace.AlgorithmFor(run.Method), run.RunRevision);
     }
 
     internal static string MappingHash(PreparedDataMapping mapping) => Hash(writer =>
@@ -70,13 +70,18 @@ internal sealed class ScientificEvidenceCapture
         {
             if (positive.Endpoint is not { } endpoint || positive.EndpointPointIndex is not { } index) continue;
             List<TraceValueDto> values = [];
-            Add(values, "minimumRfu", positive.Plateau.Min); Add(values, "maximumRfu", positive.Plateau.Max);
-            Add(values, "meanRfu", positive.Plateau.Mean); Add(values, "relativeRange", positive.Plateau.RelativeRange);
-            Add(values, "Fm", positive.Fm); Add(values, "relativeRangeMaxInclusive", method.Plateau.RelativeRangeMax);
-            Add(values, "minimumWindowPoints", method.Plateau.MinWindowPoints);
-            wells.Add(new(positive.Well.ToString(), Channel(positive.Channel), WellRoleNames.Positive100, Status(positive.Plateau.QcStatus),
-                Source(positive.Well, positive.Channel, index, endpoint), Window(positive.WindowPoints, method.Plateau.StartMinutes, method.Plateau.EndMinutes),
-                values, result.Diagnostics.Where(item => item.Well == positive.Well && item.Channel == positive.Channel).Select(item => item.Code).ToArray()));
+            if (positive.Plateau is { } plateau)
+            {
+                Add(values, "minimumRfu", plateau.Min); Add(values, "maximumRfu", plateau.Max);
+                Add(values, "meanRfu", plateau.Mean); Add(values, "relativeRange", plateau.RelativeRange);
+                Add(values, "relativeRangeMaxInclusive", method.Plateau.RelativeRangeMax);
+                Add(values, "minimumWindowPoints", method.Plateau.MinWindowPoints);
+            }
+            Add(values, "Fm", positive.Fm);
+            wells.Add(new(positive.Well.ToString(), Channel(positive.Channel), WellRoleNames.Positive100, Status(positive.QcStatus),
+                Source(positive.Well, positive.Channel, index, endpoint), positive.Plateau is null ? null : Window(positive.WindowPoints, method.Plateau.StartMinutes, method.Plateau.EndMinutes),
+                values, result.Diagnostics.Where(item => item.Well == positive.Well && item.Channel == positive.Channel).Select(item => item.Code).ToArray(),
+                fmSource: method.UsesRoxEndpointFm ? positive.FmSource : null));
             points.AddRange(positive.WindowPoints.Select(point => Stored("calibration", positive.Well, positive.Channel, point)));
         }
         foreach (NtcWellResult ntc in result.NtcWells)
@@ -95,7 +100,7 @@ internal sealed class ScientificEvidenceCapture
         foreach (PersistedScientificPoint point in points.OrderBy(point => point.Well, StringComparer.Ordinal).ThenBy(point => point.Channel, StringComparer.Ordinal).ThenBy(point => point.PointIndex)) digest.Append(point);
         AnalysisStageEvidenceDto stage = Stage("calibration", wells);
         bool allPointSourcesPresent = points.All(point => CoordinatesMatch(point.Well, point.Channel, point.SourceRowIndex, point.SourceColumnIndex))
-            && result.PositiveWells.All(well => well.WindowPoints.Count == well.Plateau.PointCount)
+            && result.PositiveWells.All(well => well.Plateau is { } plateau ? well.WindowPoints.Count == plateau.PointCount : well.Endpoint is not null && well.WindowPoints.Count == 0)
             && result.NtcWells.All(well => well.QcPoints.Count == well.QcPointCount);
         return (new(stage.Stage, stage.Identity, stage.Wells,
             allPointSourcesPresent ? stage.ProvenanceCompleteness : ProvenanceCompletenessNames.StoredPartial, digest.Complete()), points.AsReadOnly());

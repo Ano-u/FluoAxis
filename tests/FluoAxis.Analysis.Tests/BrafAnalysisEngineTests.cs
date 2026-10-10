@@ -52,7 +52,7 @@ public class BrafAnalysisEngineTests
         // Plateau mean = window mean of the flat 1000 line.
         PositiveWellResult positiveFam = calibration.Value.PositiveWells.Single(w => w.Channel == FluorescenceChannel.Fam);
         Assert.Equal(1000.0, positiveFam.Fm!.Value);
-        Assert.Equal(0.0, positiveFam.Plateau.RelativeRange!.Value);
+        Assert.Equal(0.0, positiveFam.Plateau!.RelativeRange!.Value);
 
         PositiveWellResult positiveRox = calibration.Value.PositiveWells.Single(w => w.Channel == FluorescenceChannel.Rox);
         Assert.Equal(500.0, positiveRox.Fm!.Value);

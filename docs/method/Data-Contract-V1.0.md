@@ -1,5 +1,7 @@
 # FluoAxis Data Contract V1.0（数据契约与未决科学问题）
 
+> 2026-10-10 方法补充：新 Method 1.1 仅 FAM 采用 90–120 min 平台，ROX Fm 取阳性对照 120 min 实际端点；详情见 `docs/method/Method-Specification-V1.1.md`。本输入合同与双通道时间轴一致性、缺失/非有限/容差规则不变。已有 Method 1.0 工程保持原规则。
+
 | 项目 | 内容 |
 |---|---|
 | 文档状态 | Implementation draft |

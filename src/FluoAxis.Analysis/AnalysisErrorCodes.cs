@@ -12,6 +12,7 @@ using FluoAxis.Domain;
 /// </summary>
 public static class AnalysisErrorCodes
 {
+    public const string MethodVersionUnsupported = "METHOD_VERSION_UNSUPPORTED";
     /// <summary>100% positive plateau relative range exceeded the method maximum (QC FAIL diagnosis).</summary>
     public const string CalibrationPlateauRangeExceeded = "CALIBRATION_PLATEAU_RANGE_EXCEEDED";
 

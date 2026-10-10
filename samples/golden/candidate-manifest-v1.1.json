@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "approvalStatus": "candidate-unapproved",
+  "methodId": "BRAF-V600E-Research",
+  "methodVersion": "1.1",
+  "methodSnapshotHash": "805b30d9d2631a1eff9ca078ddc57fe8638552d01789482e92b77182f03a4649",
+  "notice": "Synthetic engineering evidence only. Scientific and engineering dual approval is required before promotion to Golden. Version 1.0 candidates remain unchanged.",
+  "cases": [
+    { "id": "GD11-001", "scenario": "rox-nonplateau-endpoint-calibration" },
+    { "id": "GD11-002", "scenario": "rox-endpoint-only-evidence-with-fam-window-required" },
+    { "id": "GD11-003", "scenario": "legacy-rox-window-mean-preserved" },
+    { "id": "GD11-004", "scenario": "fam-plateau-gate-retained" },
+    { "id": "GD11-005", "scenario": "rox-endpoint-tolerance-both-boundaries" },
+    { "id": "GD11-006", "scenario": "rox-endpoint-tie-selects-later" },
+    { "id": "GD11-007", "scenario": "mean-of-positive-rox-endpoints" },
+    { "id": "GD11-008", "scenario": "rox-endpoint-denominator-nonpositive-rejection" },
+    { "id": "GD11-009", "scenario": "endpoint-fm-normalization-two-axis-dr-prime" },
+    { "id": "GD11-010", "scenario": "legacy-current-threshold-classification-difference" },
+    { "id": "GD11-011", "scenario": "deterministic-independent-oracle-sweep" }
+  ]
+}
