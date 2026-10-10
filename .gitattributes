@@ -1,0 +1,2 @@
+# Keep the hash-pinned third-party renderer byte-for-byte identical on checkout.
+/web/FluoAxis.PlotHost/vendor/plotly.min.js -text

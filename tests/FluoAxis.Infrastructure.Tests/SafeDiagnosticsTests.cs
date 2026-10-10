@@ -89,8 +89,12 @@ public sealed class SafeDiagnosticsTests
     public void Structured_event_rejects_free_form_or_path_carrying_fields()
     {
         Guid correlationId = Guid.NewGuid();
-        Assert.Throws<ArgumentException>(() => new SafeDiagnosticEvent(
-            DateTimeOffset.Now, "EVENT", "import.inspect", correlationId));
+        foreach (int offsetHours in new[] { -8, -1, 1, 8 })
+        {
+            DateTimeOffset nonUtc = DateTimeOffset.UnixEpoch.ToOffset(TimeSpan.FromHours(offsetHours));
+            Assert.Throws<ArgumentException>(() => new SafeDiagnosticEvent(
+                nonUtc, "EVENT", "import.inspect", correlationId));
+        }
         Assert.Throws<ArgumentException>(() => new SafeDiagnosticEvent(
             DateTimeOffset.UnixEpoch, "event with spaces", "import.inspect", correlationId));
         Assert.Throws<ArgumentException>(() => new SafeDiagnosticEvent(
