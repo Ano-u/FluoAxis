@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $excludedDirectories = @('.git', '.codex', '.codex_budget_work', 'bin', 'obj', 'artifacts', 'node_modules')
-$textExtensions = @('.cs', '.csproj', '.css', '.html', '.js', '.json', '.jsonl', '.manifest', '.md', '.props', '.ps1', '.slnx', '.targets', '.txt', '.xaml', '.xml', '.yaml', '.yml')
+$textExtensions = @('.cs', '.csproj', '.css', '.html', '.js', '.cjs', '.json', '.jsonl', '.manifest', '.md', '.props', '.ps1', '.slnx', '.targets', '.txt', '.xaml', '.xml', '.yaml', '.yml')
 $violations = [System.Collections.Generic.List[string]]::new()
 
 function Test-IsExcluded([string] $fullName) {

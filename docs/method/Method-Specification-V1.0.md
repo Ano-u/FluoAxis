@@ -46,7 +46,7 @@ Select endpoint/window points
 5. `RR` 判读运算符为 `<= 1%`（0.01）：`RR == 0.01` 时 PASS。
 6. 所有中间量与最终量必须先通过 `double.IsFinite` 检查；NaN/±Infinity 构成结构化 Calculation Error，不以异常形式逃逸出分析引擎。
 7. 均值运算采用顺序求和（确定性归约），不引入随线程顺序变化的并行归约。
-8. 输入点按 Elapsed 升序排序后参与计算；输入行序不影响结果。
+8. Analysis 只接受已验证、按 Elapsed 严格递增的输入；导入层拒绝重复或倒序时间，不通过静默排序修复源文件。该表述与 Data Contract 的时间校验契约一致。
 
 ## 4. 时间与端点
 

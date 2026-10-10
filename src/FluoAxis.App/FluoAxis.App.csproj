@@ -15,6 +15,23 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <ProjectReference Include="..\FluoAxis.Application\FluoAxis.Application.csproj" />
+    <ProjectReference Include="..\FluoAxis.Infrastructure\FluoAxis.Infrastructure.csproj" />
+    <ProjectReference Include="..\FluoAxis.Import\FluoAxis.Import.csproj" />
+    <ProjectReference Include="..\FluoAxis.Persistence\FluoAxis.Persistence.csproj" />
+    <ProjectReference Include="..\FluoAxis.Reporting\FluoAxis.Reporting.csproj" />
+    <Compile Include="..\FluoAxis.Infrastructure\DesktopWorkspace.Windows.cs" Link="Infrastructure\DesktopWorkspace.Windows.cs" />
+    <Compile Include="..\FluoAxis.Infrastructure\DesktopWorkspace.Delivery.Windows.cs" Link="Infrastructure\DesktopWorkspace.Delivery.Windows.cs" />
+    <Compile Include="..\FluoAxis.Infrastructure\DesktopWorkspace.Diagnostics.Windows.cs" Link="Infrastructure\DesktopWorkspace.Diagnostics.Windows.cs" />
+    <Compile Include="..\FluoAxis.Infrastructure\DesktopWorkspace.Explorer.Windows.cs" Link="Infrastructure\DesktopWorkspace.Explorer.Windows.cs" />
+    <Compile Include="..\FluoAxis.Infrastructure\DesktopWorkspace.PlotDelivery.Windows.cs" Link="Infrastructure\DesktopWorkspace.PlotDelivery.Windows.cs" />
+    <Compile Include="..\FluoAxis.Infrastructure\DesktopStartupVerification.Windows.cs" Link="Infrastructure\DesktopStartupVerification.Windows.cs" />
+    <Compile Include="..\FluoAxis.Infrastructure\DesktopWebViewEnvironment.Windows.cs" Link="Infrastructure\DesktopWebViewEnvironment.Windows.cs" />
+    <Compile Include="..\FluoAxis.Infrastructure\DesktopWorkspace.Recognition.Windows.cs" Link="Infrastructure\DesktopWorkspace.Recognition.Windows.cs" />
+    <Compile Include="..\FluoAxis.Infrastructure\PdfReportRenderer.Windows.cs" Link="Infrastructure\PdfReportRenderer.Windows.cs" />
+    <Compile Include="..\FluoAxis.Infrastructure\ReportRenderingSmoke.Windows.cs" Link="Infrastructure\ReportRenderingSmoke.Windows.cs" Condition="'$(Configuration)' == 'Debug'" />
+    <Compile Include="..\FluoAxis.Infrastructure\NativeDpiSmoke.Windows.cs" Link="Infrastructure\NativeDpiSmoke.Windows.cs" Condition="'$(Configuration)' == 'Debug'" />
+    <Compile Include="..\FluoAxis.Infrastructure\NativeVisualEvidence.Windows.cs" Link="Infrastructure\NativeVisualEvidence.Windows.cs" Condition="'$(Configuration)' == 'Debug'" />
     <ProjectReference Include="..\FluoAxis.PlotProtocol\FluoAxis.PlotProtocol.csproj" />
     <ProjectReference Include="..\FluoAxis.Presentation\FluoAxis.Presentation.csproj" />
     <ProjectReference Include="..\FluoAxis.Visualization\FluoAxis.Visualization.csproj" />
@@ -30,5 +47,23 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <!-- WinUI copies compiled markup into TargetDir for build/AppX packaging.
+       Unpackaged SDK publishing also needs those loose resources explicitly. -->
+  <Target Name="FluoAxisIncludeWinUiResourcesInPublish" AfterTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <_FluoAxisWinUiPublishResource Include="$(TargetDir)**\*.xbf;$(TargetDir)**\FluoAxis*.pri"
+                                    Exclude="$(TargetDir)publish\**\*;$(PublishDir)**\*" />
+      <_FluoAxisWinUiPublishResource Update="@(_FluoAxisWinUiPublishResource)">
+        <RelativePath>%(_FluoAxisWinUiPublishResource.RecursiveDir)%(_FluoAxisWinUiPublishResource.Filename)%(_FluoAxisWinUiPublishResource.Extension)</RelativePath>
+      </_FluoAxisWinUiPublishResource>
+      <_FluoAxisWinUiPublishResource Remove="@(ResolvedFileToPublish)"
+                                    MatchOnMetadata="RelativePath" MatchOnMetadataOptions="PathLike" />
+      <ResolvedFileToPublish Include="@(_FluoAxisWinUiPublishResource)">
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
 </Project>

@@ -43,6 +43,11 @@ public sealed record WellAssignmentDto
             throw new ArgumentException("SampleId, when present, must not be blank.", nameof(sampleId));
         }
 
+        if (role == WellRoleNames.Sample && string.IsNullOrWhiteSpace(sampleId))
+        {
+            throw new ArgumentException("Sample wells require SampleId metadata.", nameof(sampleId));
+        }
+
         if (replicateIndex is < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(replicateIndex), replicateIndex, "ReplicateIndex is 1-based and must be at least 1.");

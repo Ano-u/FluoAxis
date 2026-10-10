@@ -14,7 +14,7 @@ using FluoAxis.Domain;
 /// ragged lines become row-level diagnostics in the preview stage and
 /// fail closed during a confirmed read.
 /// </summary>
-public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImporter
+public sealed class DelimitedTextImporter(char? delimiterOverride = null, ImportReadOptions? options = null) : IImporter
 {
     private const int DelimiterSampleLines = 20;
 
@@ -120,7 +120,7 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
             using SeekableStreamScope scope = SeekableStreamScope.Create(stream, limits);
             cancellationToken.ThrowIfCancellationRequested();
 
-            Result<DetectionSample> detection = DetectEncodingAndDelimiter(scope.Stream, cancellationToken);
+            Result<DetectionSample> detection = DetectEncodingAndDelimiter(scope.Stream, cancellationToken, mapping.Options);
             if (!detection.IsSuccess)
             {
                 return Result<ImportedDataset>.Fail([.. detection.Errors]);
@@ -137,8 +137,10 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
                     ImportErrors.InvalidMapping("delimitedTextRequiresBodyRegion"));
             }
 
-            var source = new DelimitedRowSource(scope.Stream, delimiter, limits);
-            return new DatasetBuilder(mapping.RunId).Build(
+            ImportReadOptions? effective = mapping.Options ?? options;
+            delimiter = effective?.Delimiter ?? delimiter;
+            var source = new DelimitedRowSource(scope.Stream, delimiter, limits, effective);
+            return new DatasetBuilder(mapping.RunId, effective).Build(
                 mapping.Fam,
                 source,
                 mapping.Rox,
@@ -164,9 +166,10 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
     /// delimiter detection, rewinding the stream for the full parse. The
     /// stream must be seekable (the scope guarantees this).
     /// </summary>
-    private Result<DetectionSample> DetectEncodingAndDelimiter(Stream stream, CancellationToken cancellationToken)
+    private Result<DetectionSample> DetectEncodingAndDelimiter(Stream stream, CancellationToken cancellationToken, ImportReadOptions? selected = null)
     {
-        EncodingDetection encodingDetection = DetectEncoding(stream);
+        ImportReadOptions? effective = selected ?? options;
+        EncodingDetection encodingDetection = DetectEncoding(stream, effective);
         stream.Position = encodingDetection.BomLength;
 
         List<string> lines = [];
@@ -191,7 +194,7 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
 
         stream.Position = 0;
 
-        char? delimiter = delimiterOverride ?? DetectDelimiter(lines);
+        char? delimiter = effective?.Delimiter ?? delimiterOverride ?? DetectDelimiter(lines);
         return Result<DetectionSample>.Ok(new DetectionSample(
             encodingDetection.Encoding.WebName,
             encodingDetection.Assumed,
@@ -199,7 +202,7 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
     }
 
     /// <summary>Reads the BOM without consuming it permanently; position is restored to zero.</summary>
-    private static EncodingDetection DetectEncoding(Stream stream)
+    private static EncodingDetection DetectEncoding(Stream stream, ImportReadOptions? explicitOptions = null)
     {
         stream.Position = 0;
         int b0 = stream.ReadByte();
@@ -207,6 +210,14 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
         int b2 = stream.ReadByte();
         stream.Position = 0;
 
+        if (explicitOptions is not null)
+        {
+            Encoding encoding = explicitOptions.GetEncoding();
+            int bom = b0 == 0xEF && b1 == 0xBB && b2 == 0xBF ? 3 : b0 == 0xFF && b1 == 0xFE || b0 == 0xFE && b1 == 0xFF ? 2 : 0;
+            if (bom == 3 && encoding.CodePage != 65001 || bom == 2 && (b0 == 0xFF ? encoding.CodePage != 1200 : encoding.CodePage != 1201))
+                throw new InvalidDataException("The selected encoding conflicts with the source BOM.");
+            return new EncodingDetection(encoding, Assumed: false, BomLength: bom);
+        }
         if (b0 == 0xEF && b1 == 0xBB && b2 == 0xBF)
         {
             return new EncodingDetection(Encoding.UTF8, Assumed: false, BomLength: 3);
@@ -316,21 +327,22 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
         return fields;
     }
 
-    private static List<RawRow> ReadWindow(Stream stream, ImportLimits limits, char delimiter, int maxRows, CancellationToken cancellationToken)
+    private List<RawRow> ReadWindow(Stream stream, ImportLimits limits, char delimiter, int maxRows, CancellationToken cancellationToken)
     {
         var window = new List<RawRow>(maxRows);
-        EncodingDetection encodingDetection = DetectEncoding(stream);
+        EncodingDetection encodingDetection = DetectEncoding(stream, options);
         stream.Position = encodingDetection.BomLength;
 
         using var reader = new StreamReader(stream, encodingDetection.Encoding, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
 
         int rowIndex = 0;
         string? line;
-        while (window.Count < maxRows && (line = reader.ReadLine()) is not null)
+        while (rowIndex < maxRows && (line = reader.ReadLine()) is not null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (line.Length == 0)
             {
+                rowIndex++;
                 continue;
             }
 
@@ -345,9 +357,9 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
             var cells = new List<RawCell>(fields.Count);
             for (int i = 0; i < fields.Count; i++)
             {
-                cells.Add(RawCell.TryParseFinite(fields[i], out double number)
+                cells.Add(ParseNumber(fields[i], options, out double number)
                     ? new RawCell(i, null, number)
-                    : new RawCell(i, fields[i], null));
+                    : new RawCell(i, fields[i], null, options is null));
             }
 
             window.Add(new RawRow(rowIndex, cells));
@@ -371,11 +383,14 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
         ex.GetType().Name.Length > 0 ? ex.GetType().Name : "unknown";
 
     /// <summary>Streams rows from a delimited text stream starting after the BOM.</summary>
-    private sealed class DelimitedRowSource(Stream stream, char delimiter, ImportLimits limits) : DatasetBuilder.IRowSource
+    private static bool ParseNumber(string text, ImportReadOptions? parsing, out double number) =>
+        parsing is null ? RawCell.TryParseFinite(text, out number) : parsing.TryParseFinite(text, out number);
+
+    private sealed class DelimitedRowSource(Stream stream, char delimiter, ImportLimits limits, ImportReadOptions? parsing) : DatasetBuilder.IRowSource
     {
         public IEnumerable<Result<RawRow>> StreamAllRows(CancellationToken cancellationToken)
         {
-            EncodingDetection encodingDetection = DetectEncoding(stream);
+            EncodingDetection encodingDetection = DelimitedTextImporter.DetectEncoding(stream, parsing);
             stream.Position = encodingDetection.BomLength;
             using var reader = new StreamReader(stream, encodingDetection.Encoding, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
 
@@ -414,9 +429,9 @@ public sealed class DelimitedTextImporter(char? delimiterOverride = null) : IImp
                     var cells = new List<RawCell>(fields.Count);
                     for (int i = 0; i < fields.Count; i++)
                     {
-                        cells.Add(RawCell.TryParseFinite(fields[i], out double number)
+                        cells.Add(ParseNumber(fields[i], parsing, out double number)
                             ? new RawCell(i, null, number)
-                            : new RawCell(i, fields[i], null));
+                            : new RawCell(i, fields[i], null, parsing is null));
                     }
 
                     yield return Result<RawRow>.Ok(new RawRow(rowIndex, cells));

@@ -6,6 +6,14 @@ using Xunit;
 
 public sealed class PlotDataSnapshotTests
 {
+    [Fact]
+    public void OptionalErrorBarsRemainFiniteNonnegativeResearchDisplayData()
+    {
+        Assert.Equal(0.5, new PlotDataPoint("p-1", 1, 2, null, "s-1", errorY: 0.5).ErrorY);
+        Assert.Null(new PlotDataPoint("p-1", 1, 2, null, "s-1").ErrorY);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PlotDataPoint("p-1", 1, 2, null, "s-1", errorY: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PlotDataPoint("p-1", 1, 2, null, "s-1", errorY: double.NaN));
+    }
     private static readonly Guid PlotId = Guid.Parse("30000000-0000-0000-0000-000000000003");
 
     [Fact]

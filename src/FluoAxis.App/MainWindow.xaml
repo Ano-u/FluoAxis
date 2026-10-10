@@ -3,98 +3,414 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="FluoAxis">
-  <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-    <NavigationView
-        x:Name="PrimaryNavigation"
-        IsBackButtonVisible="Collapsed"
-        IsSettingsVisible="True"
-        PaneDisplayMode="LeftCompact"
-        SelectionChanged="OnNavigationSelectionChanged">
+  <Grid x:Name="RootSurface" Background="{ThemeResource WorkbenchWorkspaceBackgroundBrush}" SizeChanged="OnRootSizeChanged">
+    <!-- Native property proxies keep generated controls on this window's
+         ThemeResource resolution, including RequestedTheme and High Contrast. -->
+    <StackPanel Visibility="Collapsed" IsHitTestVisible="False">
+      <Border x:Name="PaletteSurface" Background="{ThemeResource WorkbenchSurfaceBrush}" />
+      <Border x:Name="PaletteSubtle" Background="{ThemeResource WorkbenchSubtleSurfaceBrush}" />
+      <Border x:Name="PaletteBorder" Background="{ThemeResource WorkbenchBorderBrush}" />
+      <Border x:Name="PalettePrimary" Background="{ThemeResource WorkbenchPrimaryTextBrush}" />
+      <Border x:Name="PaletteSecondary" Background="{ThemeResource WorkbenchSecondaryTextBrush}" />
+      <Border x:Name="PaletteAccent" Background="{ThemeResource WorkbenchAccentBrush}" />
+      <Border x:Name="PaletteAccentSoft" Background="{ThemeResource WorkbenchAccentSoftBrush}" />
+      <Border x:Name="PaletteSuccess" Background="{ThemeResource WorkbenchSuccessBrush}" />
+      <Border x:Name="PaletteCaution" Background="{ThemeResource WorkbenchCautionBrush}" />
+      <Border x:Name="PaletteDanger" Background="{ThemeResource WorkbenchDangerBrush}" />
+      <Border x:Name="PaletteSelection" Background="{ThemeResource WorkbenchSelectionBorderBrush}" />
+    </StackPanel>
+    <NavigationView x:Name="PrimaryNavigation" IsBackButtonVisible="Collapsed" IsSettingsVisible="True"
+                    PaneDisplayMode="LeftCompact" SelectionChanged="OnNavigationSelectionChanged">
       <NavigationView.MenuItems>
-        <NavigationViewItem Content="Workbench" Tag="workbench" Icon="Home" />
-        <NavigationViewItem x:Name="ExplorerNavigationItem" Content="Explorer" Tag="explorer" Icon="Map" />
-        <NavigationViewItem Content="Reports" Tag="reports" Icon="Document" />
+        <NavigationViewItem Content="分析工作台" Tag="workbench" Icon="Home" />
+        <NavigationViewItem x:Name="ExplorerNavigationItem" Content="数据与图形" Tag="explorer" Icon="Map" />
+        <NavigationViewItem Content="报告与导出" Tag="reports" Icon="Document" />
       </NavigationView.MenuItems>
-      <Grid RowDefinitions="Auto,Auto,*">
-        <Grid Grid.Row="0" Padding="20,12" ColumnDefinitions="*,Auto" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-          <StackPanel Spacing="2">
-            <TextBlock Text="FluoAxis" FontSize="22" FontWeight="SemiBold" />
-            <TextBlock Text="BRAF V600E fluorescence research workstation" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+      <Grid RowDefinitions="Auto,Auto,Auto,*">
+        <Grid x:Name="BrandHeader" Grid.Row="0" Padding="24,16" ColumnDefinitions="*,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Border Width="4" Height="36" CornerRadius="2" Background="{ThemeResource WorkbenchAccentBrush}" />
+            <StackPanel Spacing="2">
+              <TextBlock Text="FluoAxis" FontSize="24" FontWeight="SemiBold" Foreground="{ThemeResource WorkbenchPrimaryTextBrush}" />
+              <TextBlock Text="BRAF V600E · 双通道荧光分析" Style="{StaticResource WorkbenchHintStyle}" />
+            </StackPanel>
           </StackPanel>
-          <Border Grid.Column="1" Padding="10,5" CornerRadius="4" Background="{ThemeResource SystemFillColorCautionBackgroundBrush}">
-            <TextBlock Text="RESEARCH USE ONLY" FontSize="12" FontWeight="SemiBold" />
+          <Border Grid.Column="1" Padding="12,6" CornerRadius="6" VerticalAlignment="Center" Background="{ThemeResource WorkbenchSubtleSurfaceBrush}" BorderBrush="{ThemeResource WorkbenchBorderBrush}" BorderThickness="1">
+            <TextBlock Text="科研用途 · 方法草案" FontSize="12" Foreground="{ThemeResource WorkbenchSecondaryTextBrush}" />
           </Border>
         </Grid>
-
         <InfoBar x:Name="GlobalInfoBar" Grid.Row="1" Margin="16,8,16,0" IsOpen="False" IsClosable="True" Severity="Error" />
-
-        <TabView Grid.Row="2" IsAddTabButtonVisible="False">
-          <TabViewItem x:Name="ProjectTab" Header="Research workspace" IsClosable="False">
+        <StackPanel x:Name="ProjectHeader" Grid.Row="2" Margin="20,0,20,12" Spacing="8">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBlock x:Name="ProjectTab" Text="选择项目开始分析" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource WorkbenchPrimaryTextBrush}" />
+            <TextBlock x:Name="DraftStatusText" Grid.Column="1" Text="已提交内容自动保存" Style="{StaticResource WorkbenchHintStyle}" VerticalAlignment="Center" />
+          </Grid>
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+           <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button x:Name="SmartImportButton" Content="导入并自动判读" Style="{StaticResource WorkbenchPrimaryButtonStyle}" Click="OnSmartImportClick" />
+            <ComboBox x:Name="SmartProfileChooser" Width="250" PlaceholderText="固定孔位方案" SelectionChanged="OnSmartProfileChanged" AutomationProperties.Name="自动判读使用的固定孔位方案" />
+            <Button x:Name="ManagePlateProfileButton" Content="设置固定孔位" Click="OnManagePlateProfileClick" />
+            <Button x:Name="PreviewOnlyImportButton" Content="仅导入预览" Click="OnPreviewOnlyImportClick" />
+           </StackPanel>
+          </ScrollViewer>
+          <TextBlock x:Name="SmartProfileSummary" Text="首次设置固定对照孔后，日常只需导入文件。" Style="{StaticResource WorkbenchHintStyle}" />
+          <Expander x:Name="ProjectToolsExpander" Header="项目管理 · 切换、新建与工程文件" IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+            <Grid x:Name="ProjectManagementGrid" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="20" RowSpacing="12">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <ComboBox x:Name="ProjectChooser" PlaceholderText="选择已保存项目" HorizontalAlignment="Stretch" AutomationProperties.Name="已保存项目列表" />
+                <Button x:Name="OpenProjectButton" Grid.Column="1" Content="打开" Click="OnOpenProjectClick" />
+              </Grid>
+              <StackPanel x:Name="ProjectPaginationPanel" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button x:Name="PreviousProjectsButton" Content="上一页" Click="OnPreviousProjectsClick" />
+                <TextBlock x:Name="ProjectPageText" Text="第 1 页" VerticalAlignment="Center" Style="{StaticResource WorkbenchHintStyle}" />
+                <Button x:Name="NextProjectsButton" Content="下一页" Click="OnNextProjectsClick" />
+              </StackPanel>
+              <Grid x:Name="NewProjectForm" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBox x:Name="NewProjectNameBox" PlaceholderText="输入新项目名称" MaxLength="120" AutomationProperties.Name="新项目名称" />
+                <Button x:Name="NewProjectButton" Grid.Column="1" Content="新建" Click="OnNewProjectClick" />
+              </Grid>
+              <StackPanel x:Name="ProjectFilesPanel" Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button x:Name="OpenPackageButton" Content="打开工程包" Click="OnOpenPackageClick" />
+                <Button x:Name="SavePackageButton" Content="另存工程包" Click="OnSavePackageClick" />
+              </StackPanel>
+            </Grid>
+          </Expander>
+        </StackPanel>
+        <Border Grid.Row="3" Margin="20,0,20,16" Background="{ThemeResource WorkbenchSurfaceBrush}" BorderBrush="{ThemeResource WorkbenchBorderBrush}" BorderThickness="1" CornerRadius="12">
             <Grid>
-              <Grid x:Name="WorkbenchSurface" ColumnDefinitions="210,*,260" Visibility="Visible">
-                <Border Grid.Column="0" BorderThickness="0,0,1,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" Padding="16">
-                  <StackPanel Spacing="8">
-                    <TextBlock Text="GUIDED ANALYSIS" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <Button x:Name="ImportStageButton" Content="1  Import Preview" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="import" />
-                    <Button x:Name="MappingStageButton" Content="2  Data Mapping" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="mapping" />
-                    <Button x:Name="PlateStageButton" Content="3  Plate Map" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="plate" />
-                    <Button x:Name="CalibrationStageButton" Content="4  Calibration" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="calibration" />
-                    <Button x:Name="ControlStageButton" Content="5  Control QC" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="control" />
-                    <Button x:Name="AnalysisStageButton" Content="6  Sample Analysis" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="analysis" />
-                    <Button x:Name="ResultsStageButton" Content="7  Results / Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="results" />
-                  </StackPanel>
-                </Border>
-
-                <Grid Grid.Column="1" Padding="24" RowDefinitions="Auto,*">
-                  <StackPanel Spacing="4">
-                    <TextBlock x:Name="StageTitle" Text="Import Preview" FontSize="24" FontWeight="SemiBold" />
-                    <TextBlock x:Name="StageSubtitle" Text="Select and inspect a managed fluorescence data source." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                  </StackPanel>
-                  <Grid Grid.Row="1">
-                    <StackPanel x:Name="StageEmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420" Spacing="12">
-                      <FontIcon Glyph="&#xE8B7;" FontSize="36" HorizontalAlignment="Center" />
-                      <TextBlock Text="No managed source has been attached to this Run." TextAlignment="Center" FontSize="17" TextWrapping="Wrap" />
-                      <TextBlock Text="Import inspection is available. Run mutation remains disabled until the import transition contract is confirmed." TextAlignment="Center" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                      <Button x:Name="PrimaryStageAction" Content="Inspect source" HorizontalAlignment="Center" IsEnabled="False" />
+              <Grid x:Name="WorkbenchSurface" ColumnDefinitions="198,*,238">
+                <Border x:Name="StageRail" Grid.Column="0" BorderThickness="0,0,1,0" BorderBrush="{ThemeResource WorkbenchBorderBrush}" Background="{ThemeResource WorkbenchSubtleSurfaceBrush}" Padding="12,20" CornerRadius="12,0,0,12">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="8">
+                      <TextBlock Text="引导式分析" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                      <Button x:Name="ImportStageButton" Content="1  导入预览" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="import" />
+                      <Button x:Name="MappingStageButton" Content="2  通道与数据映射" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="mapping" />
+                      <Button x:Name="PlateStageButton" Content="3  孔位与重复孔" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="plate" />
+                      <Button x:Name="CalibrationStageButton" Content="4  校准" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="calibration" />
+                      <Button x:Name="ControlStageButton" Content="5  对照质控" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="control" />
+                      <Button x:Name="AnalysisStageButton" Content="6  样本分析" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="analysis" />
+                      <Button x:Name="ResultsStageButton" Content="7  结果与追溯" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="OnStageClick" Tag="results" />
                     </StackPanel>
+                  </ScrollViewer>
+                </Border>
+                <Grid x:Name="StageWorkspace" Grid.Column="1" Padding="24" RowDefinitions="Auto,*,Auto">
+                  <StackPanel Spacing="4" Margin="0,0,0,16">
+                    <ComboBox x:Name="CompactStageChooser" Header="分析步骤" Visibility="Collapsed" HorizontalAlignment="Stretch" SelectionChanged="OnCompactStageChanged" AutomationProperties.Name="分析步骤" />
+                    <TextBlock x:Name="StageTitle" Text="导入预览" FontSize="24" FontWeight="SemiBold" />
+                    <TextBlock x:Name="StageSubtitle" Text="选择原始仪器数据，先预览，再确认映射。" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="CompactRunContext" Text="" TextWrapping="Wrap" Visibility="Collapsed" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                  </StackPanel>
+                  <ScrollViewer x:Name="StageContentScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="StageContent" Spacing="16">
+                      <Border x:Name="StageStatusCard" Padding="16" CornerRadius="8" Background="{ThemeResource WorkbenchAccentSoftBrush}" BorderBrush="{ThemeResource WorkbenchBorderBrush}" BorderThickness="1">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="当前状态" Style="{StaticResource WorkbenchHintStyle}" />
+                          <TextBlock x:Name="StageStateTitle" Text="尚未导入原始数据" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                          <TextBlock x:Name="StageStateDetail" Text="支持 XLSX、XLS、CSV、TSV、TXT。源数据只读，正式结果由后端生成。" TextWrapping="Wrap" />
+                        </StackPanel>
+                      </Border>
+                      <StackPanel x:Name="IssuesPanel" Spacing="8" />
+                      <Border x:Name="SmartOutcomePanel" Style="{StaticResource WorkbenchCardStyle}" Visibility="Collapsed">
+                       <StackPanel Spacing="10">
+                        <TextBlock x:Name="SmartOutcomeTitle" Text="自动识别结果" FontSize="18" FontWeight="SemiBold" />
+                        <Expander Header="识别依据与孔位方案" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                          <TextBlock x:Name="SmartOutcomeText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                        </Expander>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                         <Button x:Name="ContinueSmartButton" Content="确认设置并继续自动分析" Click="OnContinueSmartClick" />
+                         <Button x:Name="RefineSmartButton" Content="从此文件重新设置" Click="OnRefineSmartClick" />
+                        </StackPanel>
+                       </StackPanel>
+                      </Border>
+                      <StackPanel x:Name="ImportPanel" Spacing="8" AllowDrop="True" DragOver="OnImportDragOver" Drop="OnImportDrop">
+                        <TextBlock Text="导入原始数据" Style="{StaticResource WorkbenchSectionTitleStyle}" />
+                        <TextBlock Text="使用顶部“导入并自动判读”或拖入文件。信息完整时自动完成分析；需要人工补充时停在对应步骤。也可选“仅导入预览”逐项设置。" Style="{StaticResource WorkbenchHintStyle}" />
+                        <Expander Header="高级解析选项 · 手动模式与保存方案时使用" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="16">
+                        <ComboBox x:Name="ImportEncodingBox" Header="文本编码" SelectedIndex="0" HorizontalAlignment="Stretch">
+                          <ComboBoxItem Content="UTF-8" Tag="utf-8"/><ComboBoxItem Content="UTF-16 LE" Tag="utf-16"/><ComboBoxItem Content="UTF-16 BE" Tag="utf-16BE"/><ComboBoxItem Content="GB18030" Tag="gb18030"/><ComboBoxItem Content="Windows-1252" Tag="windows-1252"/>
+                        </ComboBox>
+                        <ComboBox x:Name="ImportDelimiterBox" Grid.Column="1" Header="文本分隔符" SelectedIndex="0" HorizontalAlignment="Stretch">
+                          <ComboBoxItem Content="逗号" Tag="comma"/><ComboBoxItem Content="制表符 (TSV)" Tag="tab"/><ComboBoxItem Content="分号" Tag="semicolon"/>
+                        </ComboBox>
+                        <ComboBox x:Name="ImportCultureBox" Grid.Row="1" Header="小数格式（不含千位分隔）" SelectedIndex="0" HorizontalAlignment="Stretch">
+                          <ComboBoxItem Content="Invariant · 小数点" Tag="invariant"/><ComboBoxItem Content="zh-CN · 小数点" Tag="zh-CN"/><ComboBoxItem Content="de-DE · 小数逗号" Tag="de-DE"/><ComboBoxItem Content="fr-FR · 小数逗号" Tag="fr-FR"/>
+                        </ComboBox>
+                        <ComboBox x:Name="ImportTimeUnitBox" Grid.Row="1" Grid.Column="1" Header="原始时间单位" SelectedIndex="0" HorizontalAlignment="Stretch">
+                          <ComboBoxItem Content="分钟" Tag="minutes"/><ComboBoxItem Content="秒" Tag="seconds"/><ComboBoxItem Content="小时" Tag="hours"/><ComboBoxItem Content="天 / Excel duration" Tag="days"/>
+                        </ComboBox>
+                        </Grid>
+                        </Expander>
+                        <TextBlock Text="请核对解析规则，软件不会根据数值猜测时间单位或小数格式。" Style="{StaticResource WorkbenchHintStyle}" Margin="0,4,0,8" />
+                        <Border Style="{StaticResource WorkbenchCardStyle}">
+                         <StackPanel Spacing="8">
+                          <TextBlock Text="已选来源" FontWeight="SemiBold" />
+                          <TextBlock x:Name="SourceDetailsText" Text="请选择完整的 FAM / ROX 仪器导出文件。" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                        <TextBlock x:Name="PreviewDetailsText" Text="" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                         </StackPanel>
+                        </Border>
+                      </StackPanel>
+                      <StackPanel x:Name="MappingPanel" Spacing="12" Visibility="Collapsed">
+                        <TextBlock x:Name="MappingOptionsText" Text="解析选项在导入预览页明确选择。确认映射会保存这些选项和区域边界。" TextWrapping="Wrap" />
+                        <TextBlock x:Name="MappingGuidanceText" Text="分别选择 FAM 与 ROX 数据区。候选区仅是建议，确认前请核对原始文件。下方行列编号从 1 开始。" TextWrapping="Wrap" />
+                        <Grid x:Name="ChannelMappingGrid" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="16">
+                         <Border Style="{StaticResource WorkbenchCardStyle}">
+                          <StackPanel Spacing="12">
+                           <TextBlock Text="01  FAM 通道" Style="{StaticResource WorkbenchSectionTitleStyle}" />
+                        <ComboBox x:Name="FamCandidateBox" Header="FAM 候选数据区" HorizontalAlignment="Stretch" SelectionChanged="OnFamCandidateChanged" AutomationProperties.Name="FAM 候选数据区" />
+                        <TextBox x:Name="FamSheetBox" Header="FAM 工作表名（无候选可手工输入；文本文件用 text-body）" />
+                        <NumberBox x:Name="FamEndRowBox" Header="FAM 最后数据行（包含；0 = 读取到文件末尾）" Minimum="0" Value="0" SpinButtonPlacementMode="Compact" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                          <NumberBox x:Name="FamHeaderBox" Header="FAM 表头行" Minimum="1" Value="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="FAM 表头行编号" />
+                          <NumberBox x:Name="FamTimeBox" Grid.Column="1" Header="FAM 时间列" Minimum="1" Value="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="FAM 时间列编号" />
+                        </Grid>
+                        <TextBox x:Name="FamColumnsBox" Header="FAM 孔列映射（示例：2=A1, 3=A2）" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="64" AutomationProperties.Name="FAM 孔列映射" />
+                          </StackPanel>
+                         </Border>
+                         <Border x:Name="RoxMappingCard" Grid.Column="1" Style="{StaticResource WorkbenchCardStyle}">
+                          <StackPanel Spacing="12">
+                           <TextBlock Text="02  ROX 通道" Style="{StaticResource WorkbenchSectionTitleStyle}" />
+                        <ComboBox x:Name="RoxCandidateBox" Header="ROX 候选数据区" HorizontalAlignment="Stretch" SelectionChanged="OnRoxCandidateChanged" AutomationProperties.Name="ROX 候选数据区" />
+                        <TextBox x:Name="RoxSheetBox" Header="ROX 工作表名（无候选可手工输入；文本文件用 text-body）" />
+                        <NumberBox x:Name="RoxEndRowBox" Header="ROX 最后数据行（包含；0 = 读取到文件末尾）" Minimum="0" Value="0" SpinButtonPlacementMode="Compact" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                          <NumberBox x:Name="RoxHeaderBox" Header="ROX 表头行" Minimum="1" Value="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="ROX 表头行编号" />
+                          <NumberBox x:Name="RoxTimeBox" Grid.Column="1" Header="ROX 时间列" Minimum="1" Value="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="ROX 时间列编号" />
+                        </Grid>
+                        <TextBox x:Name="RoxColumnsBox" Header="ROX 孔列映射（示例：2=A1, 3=A2）" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="64" AutomationProperties.Name="ROX 孔列映射" />
+                          </StackPanel>
+                         </Border>
+                        </Grid>
+                      </StackPanel>
+                      <StackPanel x:Name="PlatePanel" Spacing="12" Visibility="Collapsed">
+                        <TextBlock x:Name="PlateGuidanceText" Text="为每个已映射孔明确选择角色。样本孔必须填写 Sample ID 和组内重复孔序号；不自动推断角色。" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                         <Button x:Name="ApplyPlateProfileButton" Content="应用选中孔位方案" Click="OnApplyPlateProfileClick" />
+                         <Button x:Name="SaveCurrentPlateProfileButton" Content="将当前对照孔保存为方案" Click="OnSaveCurrentPlateProfileClick" />
+                        </StackPanel>
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                          <Grid x:Name="PlateOverview" RowSpacing="4" ColumnSpacing="4" />
+                        </ScrollViewer>
+                        <TextBlock x:Name="PlateSelectionText" Text="选择孔位：单击；Ctrl 多选；Shift 矩形扩选；方向键移动。" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <Button x:Name="SelectAllWellsButton" Content="全选已映射孔" Click="OnSelectAllWellsClick" />
+                          <Button x:Name="ClearWellsSelectionButton" Content="清除选择" Click="OnClearWellsSelectionClick" />
+                          <Button x:Name="UndoPlateButton" Content="撤销批量" Click="OnUndoPlateClick" />
+                          <Button x:Name="RedoPlateButton" Content="重做批量" Click="OnRedoPlateClick" />
+                        </StackPanel>
+                        <Expander x:Name="BatchEditorExpander" Header="对已选孔批量应用" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                          <StackPanel Spacing="8">
+                            <ComboBox x:Name="BatchRoleBox" Header="角色（不选择则保持原角色）" PlaceholderText="保持原角色" HorizontalAlignment="Stretch" />
+                            <CheckBox x:Name="BatchSampleCheck" Content="设置 Sample ID" />
+                            <TextBox x:Name="BatchSampleBox" PlaceholderText="相同 Sample ID；可勾选下方连续重复孔序号" />
+                            <CheckBox x:Name="BatchReplicateCheck" Content="按孔位顺序设置连续重复孔序号" />
+                            <NumberBox x:Name="BatchReplicateBox" Header="起始重复孔序号" Value="1" Minimum="1" SpinButtonPlacementMode="Compact" />
+                            <CheckBox x:Name="BatchGroupCheck" Content="设置 Group（空白表示清除）" /><TextBox x:Name="BatchGroupBox" />
+                            <CheckBox x:Name="BatchTargetCheck" Content="设置 Target（空白表示清除）" /><TextBox x:Name="BatchTargetBox" />
+                            <CheckBox x:Name="BatchNotesCheck" Content="设置 Notes（空白表示清除）" /><TextBox x:Name="BatchNotesBox" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100" />
+                            <Button x:Name="ApplyBatchButton" Content="应用到选中孔" Click="OnApplyBatchClick" />
+                          </StackPanel>
+                        </Expander>
+                        <TextBlock Text="逐孔编辑 · Sample ID / 重复孔 / Group / Target / Notes" FontWeight="SemiBold" />
+                        <StackPanel x:Name="WellEditors" Spacing="8" />
+                      </StackPanel>
+                      <StackPanel x:Name="StageResultsPanel" Spacing="12" Visibility="Collapsed" />
+                      <Expander x:Name="ScientificEvidencePanel" Header="校准、对照与样本的实际计算来源" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Visibility="Collapsed">
+                        <StackPanel Spacing="10">
+                          <ComboBox x:Name="ScientificWellChooser" Header="阶段 / 孔位 / 通道" HorizontalAlignment="Stretch" SelectionChanged="OnScientificWellSelectionChanged" AutomationProperties.Name="完整计算来源孔位" />
+                          <TextBlock x:Name="ScientificSummaryText" Text="此 Run 尚未保存完整阶段来源。" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="ReadScientificPointsButton" Content="读取实际计算点" Click="OnReadScientificPointsClick" />
+                            <Button x:Name="PreviousScientificPointsButton" Content="上一页" Click="OnPreviousScientificPointsClick" />
+                            <Button x:Name="NextScientificPointsButton" Content="下一页" Click="OnNextScientificPointsClick" />
+                          </StackPanel>
+                          <TextBlock x:Name="ScientificPointsText" Text="每页最多 250 个已保存计算点；界面不重新计算。" TextWrapping="Wrap" FontFamily="Consolas" IsTextSelectionEnabled="True" />
+                        </StackPanel>
+                      </Expander>
+                      <Expander x:Name="TracePanel" Header="逐孔计算明细 · 完整精度与来源" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Visibility="Collapsed">
+                       <StackPanel Spacing="12">
+                        <ComboBox x:Name="TraceChooser" Header="选择样本孔或 LQC 孔" HorizontalAlignment="Stretch" SelectionChanged="OnTraceSelectionChanged" AutomationProperties.Name="计算证据孔位选择" />
+                        <TextBlock x:Name="TraceDetailsText" Text="尚无已保存的计算证据。" TextWrapping="Wrap" IsTextSelectionEnabled="True" FontFamily="Consolas" />
+                       </StackPanel>
+                      </Expander>
+                    </StackPanel>
+                  </ScrollViewer>
+                  <Grid Grid.Row="2" Margin="0,20,0,0" Padding="0,12,0,0" BorderBrush="{ThemeResource WorkbenchBorderBrush}" BorderThickness="0,1,0,0" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="12">
+                    <Button x:Name="PrimaryStageAction" Content="选择数据文件" Style="{StaticResource WorkbenchPrimaryButtonStyle}" IsEnabled="False" Click="OnPrimaryStageActionClick" AutomationProperties.Name="执行当前分析阶段" />
+                    <Button x:Name="CancelOperationButton" Grid.Column="1" Content="取消操作" IsEnabled="False" Click="OnCancelOperationClick" AutomationProperties.Name="取消当前操作" />
+                    <TextBlock x:Name="OperationText" Grid.Column="2" Text="" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                   </Grid>
                 </Grid>
-
-                <Border Grid.Column="2" BorderThickness="1,0,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" Padding="18">
-                  <StackPanel Spacing="14">
-                    <TextBlock Text="RUN CONTEXT" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <StackPanel Spacing="3"><TextBlock Text="Project" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><TextBlock x:Name="ProjectNameText" Text="Loading..." FontWeight="SemiBold" TextWrapping="Wrap" /></StackPanel>
-                    <StackPanel Spacing="3"><TextBlock Text="Run state" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><TextBlock x:Name="RunStateText" Text="Loading..." /></StackPanel>
-                    <StackPanel Spacing="3"><TextBlock Text="Method" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><TextBlock x:Name="MethodText" Text="Loading..." TextWrapping="Wrap" /></StackPanel>
-                    <ProgressRing x:Name="WorkbenchProgress" IsActive="True" HorizontalAlignment="Left" />
-                    <TextBlock Text="Formal results are calculated only by the deterministic Analysis Engine." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                  </StackPanel>
+                <Border x:Name="RunContextPanel" Grid.Column="2" BorderThickness="1,0,0,0" BorderBrush="{ThemeResource WorkbenchBorderBrush}" Background="{ThemeResource WorkbenchSubtleSurfaceBrush}" Padding="20" CornerRadius="0,12,12,0">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="14">
+                      <TextBlock Text="当前运行" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                      <StackPanel Spacing="3"><TextBlock Text="项目" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><TextBlock x:Name="ProjectNameText" Text="正在加载…" FontWeight="SemiBold" TextWrapping="Wrap" /></StackPanel>
+                      <StackPanel Spacing="3"><TextBlock Text="状态 / 修订号" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><TextBlock x:Name="RunStateText" Text="正在加载…" TextWrapping="Wrap" /></StackPanel>
+                      <StackPanel Spacing="3"><TextBlock Text="方法" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><TextBlock x:Name="MethodText" Text="正在加载…" TextWrapping="Wrap" /></StackPanel>
+                      <Expander Header="方法身份" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <TextBlock x:Name="MethodHashText" Text="" TextWrapping="Wrap" FontSize="12" IsTextSelectionEnabled="True" />
+                      </Expander>
+                      <TextBlock Text="已提交内容自动保存。未提交编辑将在切换或关闭时提醒。" Style="{StaticResource WorkbenchHintStyle}" />
+                      <ProgressRing x:Name="WorkbenchProgress" IsActive="True" HorizontalAlignment="Left" />
+                      <TextBlock Text="判读依据：Raw RFU" FontWeight="SemiBold" Foreground="{ThemeResource WorkbenchSecondaryTextBrush}" />
+                      <TextBlock Text="方法与 Golden 待批准。仅供科研，不用于临床诊断。" Style="{StaticResource WorkbenchHintStyle}" />
+                    </StackPanel>
+                  </ScrollViewer>
                 </Border>
               </Grid>
-
-              <Grid x:Name="ExplorerSurface" Visibility="Collapsed" RowDefinitions="Auto,*">
-                <CommandBar Grid.Row="0" DefaultLabelPosition="Right">
-                  <AppBarButton Label="2D scatter" Click="OnScatter2DClick"><AppBarButton.Icon><SymbolIcon Symbol="Map" /></AppBarButton.Icon></AppBarButton>
-                  <AppBarButton Label="3D scatter" Click="OnScatter3DClick"><AppBarButton.Icon><SymbolIcon Symbol="View" /></AppBarButton.Icon></AppBarButton>
-                  <AppBarButton Label="3D line" Click="OnLine3DClick"><AppBarButton.Icon><SymbolIcon Symbol="Switch" /></AppBarButton.Icon></AppBarButton>
-                  <AppBarSeparator />
-                  <AppBarButton Label="Export PNG" Click="OnExportPngClick"><AppBarButton.Icon><SymbolIcon Symbol="Save" /></AppBarButton.Icon></AppBarButton>
-                  <AppBarButton x:Name="ExportSvgButton" Label="Export SVG" Click="OnExportSvgClick" IsEnabled="False"><AppBarButton.Icon><SymbolIcon Symbol="Save" /></AppBarButton.Icon></AppBarButton>
-                  <CommandBar.Content><TextBlock x:Name="StatusText" Margin="12,0" VerticalAlignment="Center" Text="Explorer not initialized" /></CommandBar.Content>
+              <Grid x:Name="ExplorerViewport" Visibility="{Binding Visibility, ElementName=ExplorerSurface}" SizeChanged="OnExplorerViewportSizeChanged">
+              <Grid x:Name="ExplorerSurface" Visibility="Collapsed" Padding="12" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="8">
+                <Grid x:Name="ExplorerTitleBar" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                  <TextBlock Text="数据与图形" FontSize="22" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="{Binding Text, ElementName=ProjectTab}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Style="{StaticResource WorkbenchHintStyle}" />
+                  <TextBlock Grid.Column="2" Text="科研视图 · 不参与正式判读" VerticalAlignment="Center" Style="{StaticResource WorkbenchHintStyle}" />
+                </Grid>
+                <Grid x:Name="ExplorerSourceBar" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ComboBox x:Name="ExplorerModeBox" Width="195" SelectionChanged="OnExplorerModeChanged"><ComboBoxItem Content="当前 Run · 双通道 Raw" Tag="raw" /><ComboBoxItem Content="演示数据（非实验结果）" Tag="demo" /><ComboBoxItem Content="手工科研表" Tag="manual" /></ComboBox>
+                    <ComboBox x:Name="RawWellBox" Width="75" PlaceholderText="孔位" SelectionChanged="OnRawSeriesChanged" />
+                    <ComboBox x:Name="RawChannelBox" Width="85" SelectionChanged="OnRawSeriesChanged"><ComboBoxItem Content="FAM" Tag="fam" /><ComboBoxItem Content="ROX" Tag="rox" /></ComboBox>
+                    <Button x:Name="LoadRawButton" Content="读取数据" Style="{StaticResource WorkbenchPrimaryButtonStyle}" Click="OnLoadRawClick" /><Button x:Name="PreviousRawButton" Content="上一页" Click="OnPreviousRawClick" /><Button x:Name="NextRawButton" Content="下一页" Click="OnNextRawClick" />
+                  </StackPanel>
+                 </ScrollViewer>
+                  <Button x:Name="ExplorerSettingsButton" Grid.Column="1" Content="视图设置">
+                   <Button.Flyout><Flyout x:Name="ExplorerSettingsFlyout" Placement="BottomEdgeAlignedRight">
+                    <Flyout.FlyoutPresenterStyle><Style TargetType="FlyoutPresenter"><Setter Property="MaxWidth" Value="1100" /><Setter Property="MaxHeight" Value="800" /></Style></Flyout.FlyoutPresenterStyle>
+                    <Grid x:Name="ExplorerSettingsPanel">
+                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                      <StackPanel Spacing="14" MinWidth="760">
+                        <Button x:Name="CloseExplorerSettingsButton" Content="关闭设置" Click="OnCloseExplorerSettingsClick" HorizontalAlignment="Right" />
+                        <InfoBar x:Name="ExplorerNotice" IsOpen="True" IsClosable="False" Severity="Informational" Title="独立科研视图" Message="Raw 只读。派生公式、平滑与手工编辑不参与正式判读。" />
+                        <StackPanel Orientation="Horizontal" Spacing="8"><Button x:Name="SaveExplorerButton" Content="保存视图" Click="OnSaveExplorerClick" /><Button x:Name="RestoreExplorerButton" Content="恢复视图" Click="OnRestoreExplorerClick" /></StackPanel>
+                        <TextBlock Text="1  坐标与显示" Style="{StaticResource WorkbenchSectionTitleStyle}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ComboBox x:Name="ExplorerXBox" Header="X 列" Width="150" SelectionChanged="OnExplorerAxesChanged" /><ComboBox x:Name="ExplorerYBox" Header="Y 列" Width="150" SelectionChanged="OnExplorerAxesChanged" /><ComboBox x:Name="ExplorerZBox" Header="Z 列" Width="150" SelectionChanged="OnExplorerAxesChanged" />
+                          <CheckBox x:Name="ExplorerLogX" Content="X log" Click="OnExplorerScaleChanged" /><CheckBox x:Name="ExplorerLogY" Content="Y log" Click="OnExplorerScaleChanged" /><CheckBox x:Name="ExplorerLogZ" Content="Z log" Click="OnExplorerScaleChanged" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ComboBox x:Name="ExplorerSecondaryYBox" Header="二维第二序列 Y（可选）" Width="205" SelectionChanged="OnExplorerSeriesChanged" />
+                          <ComboBox x:Name="ExplorerErrorYBox" Header="二维 Y 误差列（非负）" Width="205" SelectionChanged="OnExplorerSeriesChanged" />
+                          <TextBlock Text="多序列共享 X；误差条仅显示用户提供/派生的非负值，不估计实验误差。" TextWrapping="Wrap" MaxWidth="420" VerticalAlignment="Bottom" FontSize="12" />
+                        </StackPanel>
+                        <TextBlock Text="2  研究处理 · 派生列与平滑" Style="{StaticResource WorkbenchSectionTitleStyle}" Margin="0,12,0,0" />
+                        <TextBlock Text="Raw 列：time / fam / rox / index；手工列：x / y / z / index。支持有界公式；数值错误显示为缺值。" Style="{StaticResource WorkbenchHintStyle}" />
+                        <Grid ColumnDefinitions="130,*,130,110,90,Auto" ColumnSpacing="6">
+                          <TextBox x:Name="DerivedNameBox" Header="新列 ID" PlaceholderText="signal_sum" MaxLength="32" /><TextBox x:Name="DerivedExpressionBox" Grid.Column="1" Header="安全公式" PlaceholderText="fam + rox" MaxLength="1024" />
+                          <ComboBox x:Name="SmoothingBox" Grid.Column="2" Header="仅视觉平滑"><ComboBoxItem Content="不平滑" Tag="none" /><ComboBoxItem Content="移动平均" Tag="movingAverage" /><ComboBoxItem Content="Savitzky-Golay" Tag="savitzkyGolay" /></ComboBox>
+                          <NumberBox x:Name="SmoothingWindowBox" Grid.Column="3" Header="奇数窗口" Minimum="3" Maximum="51" Value="5" /><ComboBox x:Name="SmoothingOrderBox" Grid.Column="4" Header="SG 阶数"><ComboBoxItem Content="2" Tag="2" /><ComboBoxItem Content="3" Tag="3" /></ComboBox>
+                          <Button Grid.Column="5" Content="添加派生列" Click="OnAddDerivedClick" VerticalAlignment="Bottom" />
+                        </Grid>
+                        <TextBlock Text="平滑按当前页的采集行序号拟合，页边界采用偏移完整窗口；不是跨页连续滤波，也不是正式算法输入。" TextWrapping="Wrap" FontSize="12" />
+                        <TextBlock Text="3  表格整理 · 编辑、筛选与统计" Style="{StaticResource WorkbenchSectionTitleStyle}" Margin="0,12,0,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ComboBox x:Name="ExplorerEditColumnBox" Width="140" Header="列" /><TextBox x:Name="ExplorerColumnLabelBox" Width="150" Header="显示名称" MaxLength="80" /><TextBox x:Name="ExplorerColumnUnitBox" Width="100" Header="单位" MaxLength="24" /><Button Content="重命名/单位" Click="OnRenameExplorerColumnClick" VerticalAlignment="Bottom" />
+                          <TextBox x:Name="ExplorerEditValueBox" Width="120" Header="选中行派生值" /><Button Content="应用编辑" Click="OnEditExplorerCellClick" VerticalAlignment="Bottom" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ComboBox x:Name="ExplorerFilterColumnBox" Width="140" Header="排序/筛选列" /><NumberBox x:Name="ExplorerFilterMinBox" Header="下界(可空)" Width="120" /><NumberBox x:Name="ExplorerFilterMaxBox" Header="上界(可空)" Width="120" /><CheckBox x:Name="ExplorerSortDescending" Content="降序" /><Button Content="应用筛选排序" Click="OnFilterExplorerClick" VerticalAlignment="Bottom" /><Button Content="清除筛选" Click="OnClearExplorerFilterClick" VerticalAlignment="Bottom" /><Button Content="列统计" Click="OnExplorerStatisticsClick" VerticalAlignment="Bottom" /><Button Content="复制选中行" Click="OnCopyExplorerClick" VerticalAlignment="Bottom" />
+                        </StackPanel>
+                        <Expander Header="手工数据 · 新建或粘贴" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                         <StackPanel Spacing="12">
+                          <TextBox x:Name="ExplorerPasteBox" Header="每行 X、Y、Z，用 Tab 或逗号分隔；不执行公式" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="90" MaxLength="1000000" /><StackPanel Orientation="Horizontal" Spacing="6"><Button Content="新建空表" Click="OnNewManualTableClick" /><Button Content="粘贴数据为手工表" Click="OnPasteManualTableClick" /><Button Content="添加空行" Click="OnAddManualRowClick" /><Button Content="移除全部派生列" Click="OnClearDerivedClick" /></StackPanel>
+                         </StackPanel>
+                        </Expander>
+                      </StackPanel>
+                     </ScrollViewer>
+                    </Grid>
+                   </Flyout></Button.Flyout>
+                  </Button>
+                </Grid>
+                <CommandBar Grid.Row="2" DefaultLabelPosition="Right" Background="{ThemeResource WorkbenchSubtleSurfaceBrush}">
+                 <CommandBar.Content><StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button x:Name="ExplorerFocusButton" Content="放大图形" Click="OnExplorerFocusClick" />
+                  <Button x:Name="ExplorerTableButton" Content="数据表与选点">
+                   <Button.Flyout><Flyout x:Name="ExplorerTableFlyout" Placement="BottomEdgeAlignedLeft">
+                    <Flyout.FlyoutPresenterStyle><Style TargetType="FlyoutPresenter"><Setter Property="MaxWidth" Value="1000" /><Setter Property="MaxHeight" Value="500" /></Style></Flyout.FlyoutPresenterStyle>
+                    <Grid x:Name="ExplorerTablePanel" RowDefinitions="Auto,*,Auto" RowSpacing="8">
+                     <TextBlock Text="当前页数据 · 选中行可高亮图点" FontWeight="SemiBold" />
+                     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                      <StackPanel><StackPanel x:Name="ExplorerTableHeader" Orientation="Horizontal" Background="{ThemeResource WorkbenchSubtleSurfaceBrush}" />
+                       <ListView x:Name="ExplorerTable" SelectionMode="Extended" Height="200" SelectionChanged="OnExplorerTableSelectionChanged" IsItemClickEnabled="False">
+                        <ListView.ItemTemplate><DataTemplate><Grid ColumnDefinitions="110,110,110,110,110,110,110,110,110,110,110,110"><TextBlock Text="{Binding Cells[0]}" /><TextBlock Grid.Column="1" Text="{Binding Cells[1]}" /><TextBlock Grid.Column="2" Text="{Binding Cells[2]}" /><TextBlock Grid.Column="3" Text="{Binding Cells[3]}" /><TextBlock Grid.Column="4" Text="{Binding Cells[4]}" /><TextBlock Grid.Column="5" Text="{Binding Cells[5]}" /><TextBlock Grid.Column="6" Text="{Binding Cells[6]}" /><TextBlock Grid.Column="7" Text="{Binding Cells[7]}" /><TextBlock Grid.Column="8" Text="{Binding Cells[8]}" /><TextBlock Grid.Column="9" Text="{Binding Cells[9]}" /><TextBlock Grid.Column="10" Text="{Binding Cells[10]}" /><TextBlock Grid.Column="11" Text="{Binding Cells[11]}" /></Grid></DataTemplate></ListView.ItemTemplate>
+                       </ListView>
+                      </StackPanel>
+                     </ScrollViewer>
+                     <ScrollViewer Grid.Row="2" MaxHeight="100"><TextBlock x:Name="RawPageText" Text="尚未读取原始记录。" Style="{StaticResource WorkbenchHintStyle}" IsTextSelectionEnabled="True" /></ScrollViewer>
+                    </Grid>
+                   </Flyout></Button.Flyout>
+                  </Button>
+                 </StackPanel></CommandBar.Content>
+                  <AppBarButton Label="2D 散点" Click="OnScatter2DClick" /><AppBarButton Label="2D 折线" Click="OnRawLineClick" /><AppBarButton Label="散点+线" Click="OnScatterLineClick" />
+                  <AppBarButton x:Name="DemoScatter3DButton" Label="3D 散点" Click="OnScatter3DClick" /><AppBarButton x:Name="DemoLine3DButton" Label="3D 折线" Click="OnLine3DClick" />
+                  <AppBarButton Label="两点距离" Click="OnMeasureDistanceClick" /><AppBarSeparator />
+                 <CommandBar.SecondaryCommands>
+                  <AppBarButton x:Name="ExportPngButton" Label="导出 PNG" Click="OnExportPngClick" IsEnabled="False" /><AppBarButton x:Name="ExportSvgButton" Label="导出 SVG" Click="OnExportSvgClick" IsEnabled="False" />
+                  <AppBarButton x:Name="ExportHtmlPlotButton" Label="HTML" Click="OnExportHtmlPlotClick" IsEnabled="False" />
+                  <AppBarButton x:Name="AttachReportFigureButton" Label="报告附图" Click="OnAttachReportFigureClick" IsEnabled="False" />
+                 </CommandBar.SecondaryCommands>
                 </CommandBar>
-                <WebView2 x:Name="PlotWebView" Grid.Row="1" />
-                <TextBlock x:Name="PlotFallback" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18" Text="Visualization is unavailable." Visibility="Collapsed" />
+                <Grid Grid.Row="3">
+                  <WebView2 x:Name="PlotWebView" /><TextBlock x:Name="PlotFallback" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="17" Text="请选择已导入数据的 Run。" TextWrapping="Wrap" Visibility="Visible" />
+                </Grid>
+                <TextBlock x:Name="StatusText" Grid.Row="4" Text="尚未初始化图形" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
               </Grid>
-
-              <Grid x:Name="PlaceholderSurface" Visibility="Collapsed">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                  <TextBlock x:Name="PlaceholderTitle" Text="Reports" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                  <TextBlock x:Name="PlaceholderText" Text="This capability is not implemented in the current verified slice." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+              </Grid>
+              <Grid x:Name="PlaceholderSurface" Visibility="Collapsed" Padding="32">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                  <StackPanel Spacing="16" MaxWidth="900" HorizontalAlignment="Stretch">
+                    <TextBlock x:Name="PlaceholderTitle" Text="设置与诊断" FontSize="24" FontWeight="SemiBold" />
+                    <TextBlock Text="工作区自动保存已提交的运行。启动时检查数据库完整性，异常退出后的会话在此提示。" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Button Content="刷新运行信息" Click="OnRefreshDiagnosticsClick" />
+                      <Button Content="导出技术支持包" Click="OnSupportBundleClick" />
+                    </StackPanel>
+                    <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Title="支持包范围" Message="只包含版本、运行环境、内存概况和最多 100 条技术事件代码，不含原始信号、源文件、项目名称或底层异常文本。" />
+                    <TextBlock x:Name="PlaceholderText" Text="正在读取运行信息…" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                  </StackPanel>
+                </ScrollViewer>
+              </Grid>
+              <Grid x:Name="ReportsSurface" Visibility="Collapsed" Padding="24" RowDefinitions="*,Auto" RowSpacing="16">
+               <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled" HorizontalContentAlignment="Stretch">
+                <StackPanel Spacing="20" HorizontalAlignment="Stretch">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="报告与导出" FontSize="28" FontWeight="SemiBold" />
+                    <TextBlock Text="核对运行 → 读取快照 → 保存报告" Style="{StaticResource WorkbenchHintStyle}" />
+                  </StackPanel>
+                  <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Title="科研技术草稿" Message="方法尚未科学批准。来源完整性见报告快照；不用于临床诊断、治疗或患者管理。" />
+                  <Border Style="{StaticResource WorkbenchCardStyle}"><StackPanel Spacing="12">
+                    <TextBlock Text="01  核对当前运行" Style="{StaticResource WorkbenchSectionTitleStyle}" />
+                    <TextBlock x:Name="ReportRunText" Text="请先新建或打开一个项目。" TextWrapping="Wrap" FontSize="16" />
+                    <TextBlock Text="只使用已提交内容。未提交映射和孔位编辑不会进入报告。" Style="{StaticResource WorkbenchHintStyle}" />
+                  </StackPanel></Border>
+                  <Border Style="{StaticResource WorkbenchCardStyle}"><StackPanel Spacing="12">
+                    <TextBlock Text="02  读取与复核快照" Style="{StaticResource WorkbenchSectionTitleStyle}" />
+                    <Button x:Name="PreviewReportButton" Content="读取报告快照" Click="OnPreviewReportClick" HorizontalAlignment="Left" />
+                    <TextBlock x:Name="ReportPreviewSummary" Text="尚未读取快照。导出时后端会验证并冻结当前已提交结果。" Style="{StaticResource WorkbenchHintStyle}" />
+                    <Expander Header="快照身份、完整性与版本" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                      <TextBlock x:Name="ReportDetailsText" Text="尚未读取报告快照。" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    </Expander>
+                  </StackPanel></Border>
                 </StackPanel>
+               </ScrollViewer>
+                  <Border Grid.Row="1" Style="{StaticResource WorkbenchCardStyle}"><StackPanel Spacing="12">
+                    <TextBlock Text="03  保存科研报告" Style="{StaticResource WorkbenchSectionTitleStyle}" />
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                     <StackPanel Orientation="Horizontal" Spacing="10">
+                      <Button x:Name="ExportPdfButton" Content="导出 PDF 报告" Style="{StaticResource WorkbenchPrimaryButtonStyle}" Click="OnExportPdfClick" />
+                      <Button x:Name="ExportXlsxButton" Content="Excel 数据表" Click="OnExportXlsxClick" />
+                      <Button x:Name="ExportHtmlButton" Content="HTML 报告" Click="OnExportHtmlClick" />
+                     </StackPanel>
+                    </ScrollViewer>
+                    <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                      <TextBlock x:Name="DeliveryStatusText" Text="" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    </ScrollViewer>
+                    <Button x:Name="CancelDeliveryButton" Content="取消输出 / 打开" Click="OnCancelOperationClick" IsEnabled="False" HorizontalAlignment="Left" />
+                  </StackPanel></Border>
               </Grid>
             </Grid>
-          </TabViewItem>
-        </TabView>
+        </Border>
       </Grid>
     </NavigationView>
   </Grid>

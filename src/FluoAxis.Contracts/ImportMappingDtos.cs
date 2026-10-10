@@ -23,6 +23,7 @@ public sealed record ChannelRegionMappingDto
     public string SheetName { get; }
     public int HeaderRowIndex { get; }
     public int TimeColumnIndex { get; }
+    public int? EndRowIndex { get; }
     public IReadOnlyList<WellColumnMappingDto> WellColumns { get; }
 
     public ChannelRegionMappingDto(
@@ -30,13 +31,16 @@ public sealed record ChannelRegionMappingDto
         string sheetName,
         int headerRowIndex,
         int timeColumnIndex,
-        IReadOnlyList<WellColumnMappingDto> wellColumns)
+        IReadOnlyList<WellColumnMappingDto> wellColumns,
+        int? endRowIndex = null)
     {
         ContractGuard.RequireNonBlank(channel, nameof(channel));
         ContractGuard.RequireChannel(channel);
         ContractGuard.RequireNonBlank(sheetName, nameof(sheetName));
         ContractGuard.RequireNonNegative(headerRowIndex, nameof(headerRowIndex));
         ContractGuard.RequireNonNegative(timeColumnIndex, nameof(timeColumnIndex));
+        if (endRowIndex is { } end && end <= headerRowIndex)
+            throw new ArgumentOutOfRangeException(nameof(endRowIndex), "The inclusive end row must be after the header.");
         ArgumentNullException.ThrowIfNull(wellColumns);
 
         if (wellColumns.Count == 0)
@@ -69,6 +73,7 @@ public sealed record ChannelRegionMappingDto
         SheetName = sheetName;
         HeaderRowIndex = headerRowIndex;
         TimeColumnIndex = timeColumnIndex;
+        EndRowIndex = endRowIndex;
         WellColumns = Array.AsReadOnly(snapshot);
     }
 }

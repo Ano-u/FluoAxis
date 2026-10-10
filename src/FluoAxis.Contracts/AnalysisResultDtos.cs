@@ -133,6 +133,7 @@ public sealed record ControlQcResultDto
     public double? WtYFamMean { get; }
     public double? WtYRoxMean { get; }
     public string? LqcCall { get; }
+    /// <summary>Stored Analysis mean for a direction-consistent group, including Negative QC failures. Missing historical values remain null.</summary>
     public double? LqcMeanDrPrime { get; }
     public IReadOnlyList<IssueDto> Issues { get; }
 

@@ -1,6 +1,7 @@
 namespace FluoAxis.Application;
 
 using FluoAxis.Domain;
+using FluoAxis.Contracts;
 
 /// <summary>
 /// One per-well diagnostic in a form the persistence layer can store
@@ -33,6 +34,8 @@ public sealed record PersistedCalibration(
 /// The persisted WT reference coordinate and control-stage verdict. The
 /// reference is populated only when the control stage passed; a failed or
 /// invalid control stage must never publish a dr' origin.
+/// LQC direction and mean are stored exactly as emitted by Analysis; a
+/// consistent Negative group retains them even though its QC status is Fail.
 /// </summary>
 public sealed record PersistedControl(
     string Status,
@@ -79,7 +82,13 @@ public sealed record PersistedTrace(
     string ComparisonOperator,
     double ThresholdRaw,
     double? ResultRaw,
-    string FinalStatus);
+    string FinalStatus,
+    TraceProvenanceDto? Provenance = null);
+
+public readonly record struct PersistedScientificPoint(string Stage, string Well, string Channel, int PointIndex,
+    long ElapsedTicks, double RawRfu, double? Normalized, int? SourceRowIndex, int? SourceColumnIndex, bool? WithinBand = null);
+
+public sealed record PersistedScientificPointPage(int TotalPoints, IReadOnlyList<PersistedScientificPoint> Points);
 
 /// <summary>
 /// Everything one run's workflow produces after import, in a persistence-
@@ -111,6 +120,8 @@ public sealed record RunWorkflowPayload
 
     /// <summary>Set by the sample analysis (or control) stage.</summary>
     public IReadOnlyList<PersistedTrace>? Traces { get; init; }
+    public IReadOnlyList<AnalysisStageEvidenceDto>? ScientificStages { get; init; }
+    public IReadOnlyList<PersistedScientificPoint>? ScientificPoints { get; init; }
 
     public static RunWorkflowPayload Empty { get; } = new();
 }
@@ -137,4 +148,8 @@ public interface IRunWorkflowReader
     ValueTask<IReadOnlyList<PersistedSample>> GetSamplesAsync(Guid runId, CancellationToken cancellationToken);
 
     ValueTask<IReadOnlyList<PersistedTrace>> GetTracesAsync(Guid runId, CancellationToken cancellationToken);
+    ValueTask<IReadOnlyList<AnalysisStageEvidenceDto>> GetScientificStagesAsync(Guid runId, CancellationToken cancellationToken) =>
+        ValueTask.FromResult<IReadOnlyList<AnalysisStageEvidenceDto>>([]);
+    ValueTask<PersistedScientificPointPage> GetScientificPointsAsync(Guid runId, string stage, string well, string channel,
+        int offset, int pageSize, CancellationToken cancellationToken) => ValueTask.FromResult(new PersistedScientificPointPage(0, []));
 }

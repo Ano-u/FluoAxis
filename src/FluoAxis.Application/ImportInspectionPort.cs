@@ -11,8 +11,9 @@ public sealed record ManagedImportRequest
     public long DeclaredSizeBytes { get; }
     public RelativePath ResourcePath { get; }
     public string? FormatHint { get; }
+    public ImportOptionsDto? Options { get; }
 
-    public ManagedImportRequest(Guid runId, string displayName, long declaredSizeBytes, RelativePath resourcePath, string? formatHint)
+    public ManagedImportRequest(Guid runId, string displayName, long declaredSizeBytes, RelativePath resourcePath, string? formatHint, ImportOptionsDto? options = null)
     {
         if (runId == Guid.Empty)
         {
@@ -33,6 +34,7 @@ public sealed record ManagedImportRequest
         DeclaredSizeBytes = declaredSizeBytes;
         ResourcePath = resourcePath;
         FormatHint = formatHint;
+        Options = options;
     }
 }
 

@@ -193,6 +193,46 @@ public class ConstructionGuardTests
             "run-001.xlsx", "data/raw/run-001.xlsx", TestDtos.ValidSha256, 2048, SourceFileDto.MediaTypeNames.Xlsx));
     }
 
+    [Theory]
+    [InlineData("Signals")]
+    [InlineData("signals")]
+    public void ConfirmMappingCommand_RejectsReusingTheSameSourceSignalCells(string roxSheet)
+    {
+        ChannelRegionMappingDto fam = new(ChannelNames.Fam, "Signals", 0, 0, [new(1, "A1"), new(2, "A2")]);
+        ChannelRegionMappingDto rox = new(ChannelNames.Rox, roxSheet, 0, 0, [new(2, "A2"), new(1, "A1")]);
+
+        Assert.Throws<ArgumentException>(() => new ConfirmMappingCommand(
+            TestDtos.RequestId, TestDtos.RunId, 0, "actor", TestDtos.IssuedUtc, fam, rox,
+            "run-001.xlsx", "data/raw/run-001.xlsx", TestDtos.ValidSha256, 2048, SourceFileDto.MediaTypeNames.Xlsx));
+    }
+
+    [Theory]
+    [InlineData(0, 2)]
+    [InlineData(10, 1)]
+    public void ConfirmMappingCommand_AllowsDistinctColumnsOrRegionsOnOneSheet(int roxHeader, int roxColumn)
+    {
+        ChannelRegionMappingDto fam = new(ChannelNames.Fam, "Signals", 0, 0, [new(1, "A1")], endRowIndex: roxHeader > 0 ? roxHeader : null);
+        ChannelRegionMappingDto rox = new(ChannelNames.Rox, "Signals", roxHeader, 0, [new(roxColumn, "A1")]);
+
+        ConfirmMappingCommand command = new(
+            TestDtos.RequestId, TestDtos.RunId, 0, "actor", TestDtos.IssuedUtc, fam, rox,
+            "run-001.xlsx", "data/raw/run-001.xlsx", TestDtos.ValidSha256, 2048, SourceFileDto.MediaTypeNames.Xlsx);
+
+        Assert.Same(rox, command.Rox);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void ConfirmMappingCommandRejectsPartiallySharedSignalCells(int roxHeader)
+    {
+        var fam = new ChannelRegionMappingDto(ChannelNames.Fam, "Signals", 0, 0, [new(1, "A1"), new(2, "A2")]);
+        var rox = new ChannelRegionMappingDto(ChannelNames.Rox, "Signals", roxHeader, 3, [new(2, "A1"), new(4, "A2")]);
+        Assert.Throws<ArgumentException>(() => new ConfirmMappingCommand(
+            TestDtos.RequestId, TestDtos.RunId, 0, "actor", TestDtos.IssuedUtc, fam, rox,
+            "run-001.xlsx", "data/raw/run-001.xlsx", TestDtos.ValidSha256, 2048, SourceFileDto.MediaTypeNames.Xlsx));
+    }
+
     [Fact]
     public void ConfirmMappingCommand_RejectsUnsafeStagedSourceIdentity()
     {
@@ -298,6 +338,15 @@ public class ConstructionGuardTests
         Assert.Equal(WellRole.Sample, domain.Role);
         Assert.Equal("S1", domain.Sample!.SampleId);
         Assert.Equal(3, domain.Sample.ReplicateIndex);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void WellAssignmentDto_RejectsSampleWithoutSampleId(string? sampleId)
+    {
+        Assert.Throws<ArgumentException>(() => new WellAssignmentDto("B3", WellRoleNames.Sample, sampleId: sampleId));
     }
 
     [Fact]

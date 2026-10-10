@@ -18,7 +18,7 @@ internal static class AnalysisInputBinding
     /// plate order. Wells with no assignment, or assigned
     /// <see cref="WellRole.Ignore"/>, never reach the engine.
     /// </summary>
-    public static PreparedRoleGroups GroupByRole(
+    public static Result<PreparedRoleGroups> GroupByRole(
         IReadOnlyList<SignalSeries> signals,
         IReadOnlyList<WellAssignment> assignments)
     {
@@ -45,20 +45,34 @@ internal static class AnalysisInputBinding
                 continue;
             }
 
-            // A well missing one of its channels cannot be analysed. The
-            // import layer guarantees matched channel well sets, so this is a
-            // defensive check rather than an expected path.
+            // Imported data and persisted workspaces can be incomplete. Never
+            // silently remove an assigned replicate or critical control from
+            // the analysis input when one of its channels is unavailable.
             if (!byChannel[0].TryGetValue(well, out SignalSeries? fam)
                 || !byChannel[1].TryGetValue(well, out SignalSeries? rox))
             {
-                continue;
+                return Result<PreparedRoleGroups>.Fail(new AppError(
+                    ErrorCodes.PlateRoleCardinality,
+                    ErrorSeverity.Blocking,
+                    $"Assigned well {well} requires both FAM and ROX signals; the analysis input is incomplete."));
             }
 
-            var signalsForWell = new WellSignals(well, new Dictionary<FluorescenceChannel, SignalSeries>
+            WellSignals signalsForWell;
+            try
             {
-                [FluorescenceChannel.Fam] = fam,
-                [FluorescenceChannel.Rox] = rox,
-            });
+                signalsForWell = new WellSignals(well, new Dictionary<FluorescenceChannel, SignalSeries>
+                {
+                    [FluorescenceChannel.Fam] = fam,
+                    [FluorescenceChannel.Rox] = rox,
+                });
+            }
+            catch (ArgumentException)
+            {
+                return Result<PreparedRoleGroups>.Fail(new AppError(
+                    ErrorCodes.PlateRoleCardinality,
+                    ErrorSeverity.Blocking,
+                    $"Assigned well {well} has inconsistent FAM and ROX Run identity or time axes."));
+            }
 
             switch (assignment.Role)
             {
@@ -104,7 +118,7 @@ internal static class AnalysisInputBinding
             groups.Add(new PreparedSampleGroup(group.Key, wells));
         }
 
-        return new PreparedRoleGroups(positive, ntc, wt, lqc, groups);
+        return Result<PreparedRoleGroups>.Ok(new PreparedRoleGroups(positive, ntc, wt, lqc, groups));
     }
 
     /// <summary>Builds the calibration stage input from the role groups.</summary>
@@ -125,13 +139,35 @@ internal static class AnalysisInputBinding
     /// as the engine emitted it, so later stages never recompute a quantity
     /// the method computes once (Method-Spec §2).
     /// </summary>
-    public static CalibrationResult Rehydrate(PersistedCalibration calibration) => new(
-        positiveWells: [],
-        ntcWells: [],
-        runFm: ToChannelMap(calibration.RunFmFam, calibration.RunFmRox),
-        runFb: ToChannelMap(calibration.RunFbFam, calibration.RunFbRox),
-        qcStatus: ParseStatus(calibration.Status),
-        diagnostics: [.. calibration.Diagnostics.Select(ToDiagnostic)]);
+    public static Result<CalibrationResult> Rehydrate(PersistedCalibration calibration, BrafMethodSnapshot method)
+    {
+        if (!string.Equals(calibration.MethodSnapshotHash, method.ComputeCanonicalHash(), StringComparison.Ordinal))
+        {
+            return Result<CalibrationResult>.Fail(new AppError(
+                ErrorCodes.SystemInvalidRunState,
+                ErrorSeverity.Blocking,
+                "The persisted calibration does not belong to this Run's Method snapshot."));
+        }
+
+        if (calibration.RunFmFam is not { } fmFam || !double.IsFinite(fmFam)
+            || calibration.RunFmRox is not { } fmRox || !double.IsFinite(fmRox)
+            || calibration.RunFbFam is not { } fbFam || !double.IsFinite(fbFam)
+            || calibration.RunFbRox is not { } fbRox || !double.IsFinite(fbRox))
+        {
+            return Result<CalibrationResult>.Fail(new AppError(
+                ErrorCodes.SystemInvalidRunState,
+                ErrorSeverity.Blocking,
+                "The persisted calibration is missing a finite Fm or Fb value for FAM or ROX."));
+        }
+
+        return Result<CalibrationResult>.Ok(new CalibrationResult(
+            positiveWells: [],
+            ntcWells: [],
+            runFm: ToChannelMap(fmFam, fmRox),
+            runFb: ToChannelMap(fbFam, fbRox),
+            qcStatus: ParseStatus(calibration.Status),
+            diagnostics: [.. calibration.Diagnostics.Select(ToDiagnostic)]));
+    }
 
     /// <summary>Reconstructs the WT reference from what the control stage persisted.</summary>
     public static WtReference? RehydrateReference(PersistedControl control) =>

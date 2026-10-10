@@ -71,4 +71,13 @@ public class SignalSeriesTests
 
         Assert.Equal(2, series.Points.Count);
     }
+
+    [Fact]
+    public void Validated_raw_points_cannot_be_mutated_through_a_collection_cast()
+    {
+        var series = SignalSeries.Create(RunId, new WellId('A', 1), FluorescenceChannel.Fam, [P(0, 100), P(120, 460)]);
+        var exposed = Assert.IsAssignableFrom<IList<SignalPoint>>(series.Points);
+        Assert.Throws<NotSupportedException>(() => exposed[1] = P(120, double.NaN));
+        Assert.Equal(460, series.Points[1].Rfu);
+    }
 }

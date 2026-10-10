@@ -38,6 +38,7 @@ public sealed class RunWorkflowEndToEndTests
             (revision, command) => gateway.ConfirmMappingAsync(plate.MappingCommand(runId, revision, command), CancellationToken.None));
         Assert.Equal(RunStateNames.Imported, imported.DomainState);
         Assert.Single(imported.SourceFiles);
+        DateTimeOffset importedAt = imported.SourceFiles[0].ImportedAtUtc;
 
         // Imported -> Mapped (assign the plate roles).
         RunSnapshotDto mapped = await StepAsync(
@@ -95,6 +96,53 @@ public sealed class RunWorkflowEndToEndTests
         Assert.Equal(1, final.AnalysisSummary.PositiveCount);
         Assert.Equal(1, final.AnalysisSummary.NegativeCount);
         Assert.Equal(0, final.AnalysisSummary.InvalidCount);
+        Assert.Equal(importedAt, Assert.Single(final.SourceFiles).ImportedAtUtc);
+    }
+
+    [Fact]
+    public async Task Exact_stage_retry_replays_without_another_revision()
+    {
+        SyntheticPlate plate = SyntheticPlate.Passing();
+        ApplicationGateway gateway = CreateGateway(plate);
+        Guid runId = await CreateRunAsync(gateway);
+        await ConfirmAndAssignAsync(gateway, plate, runId);
+
+        int revisionBefore = await RevisionAsync(gateway, runId);
+        Guid requestId = Guid.NewGuid();
+        RunCalibrationCommand command = plate.CalibrationCommand(runId, revisionBefore, requestId);
+
+        GatewayResult<CalibrationResultDto> first = await gateway.RunCalibrationAsync(command, CancellationToken.None);
+        GatewayResult<CalibrationResultDto> replay = await gateway.RunCalibrationAsync(command, CancellationToken.None);
+
+        Assert.True(first.IsSuccess, Describe(first));
+        Assert.True(replay.IsSuccess, Describe(replay));
+        Assert.NotNull(first.Value);
+        Assert.NotNull(replay.Value);
+        Assert.Equal(first.Value!.Status, replay.Value!.Status);
+        Assert.Equal(first.Value.RunFmFam, replay.Value.RunFmFam);
+        Assert.Equal(first.Value.RunFmRox, replay.Value.RunFmRox);
+        Assert.Equal(first.Value.RunFbFam, replay.Value.RunFbFam);
+        Assert.Equal(first.Value.RunFbRox, replay.Value.RunFbRox);
+        Assert.Equal(first.Value.PerWellDiagnostics, replay.Value.PerWellDiagnostics);
+        Assert.Equal(revisionBefore + 1, await RevisionAsync(gateway, runId));
+    }
+
+    [Fact]
+    public async Task Failed_stage_commits_terminal_invalid_state_in_one_revision()
+    {
+        SyntheticPlate plate = SyntheticPlate.Passing() with { PositivePlateaus = false };
+        ApplicationGateway gateway = CreateGateway(plate);
+        Guid runId = await CreateRunAsync(gateway);
+        await ConfirmAndAssignAsync(gateway, plate, runId);
+
+        int revisionBefore = await RevisionAsync(gateway, runId);
+        GatewayResult<CalibrationResultDto> calibration = await gateway.RunCalibrationAsync(
+            plate.CalibrationCommand(runId, revisionBefore), CancellationToken.None);
+
+        Assert.True(calibration.IsSuccess, Describe(calibration));
+        RunSnapshotDto snapshot = await SnapshotAsync(gateway, runId);
+        Assert.Equal(RunStateNames.RunInvalid, snapshot.DomainState);
+        Assert.Equal(revisionBefore + 1, snapshot.Revision);
     }
 
     [Fact]
@@ -147,6 +195,32 @@ public sealed class RunWorkflowEndToEndTests
 
         RunSnapshotDto snapshot = await SnapshotAsync(gateway, runId);
         Assert.Equal(RunStateNames.RunInvalid, snapshot.DomainState);
+    }
+
+    [Fact]
+    public async Task Mixed_lqc_replicates_are_invalid_and_commit_control_failure()
+    {
+        SyntheticPlate plate = SyntheticPlate.Passing() with { MixedLqcReplicates = true };
+        ApplicationGateway gateway = CreateGateway(plate);
+        Guid runId = await CreateRunAsync(gateway);
+        await ConfirmAndAssignAsync(gateway, plate, runId);
+
+        GatewayResult<CalibrationResultDto> calibration = await gateway.RunCalibrationAsync(
+            plate.CalibrationCommand(runId, await RevisionAsync(gateway, runId)), CancellationToken.None);
+        Assert.True(calibration.IsSuccess, Describe(calibration));
+        Assert.Equal(StatusNames.Pass, calibration.Value!.Status);
+
+        GatewayResult<ControlQcResultDto> control = await gateway.RunControlQcAsync(
+            plate.ControlCommand(runId, await RevisionAsync(gateway, runId)), CancellationToken.None);
+        Assert.True(control.IsSuccess, Describe(control));
+        Assert.Equal(StatusNames.Invalid, control.Value!.Status);
+        Assert.Null(control.Value.LqcCall);
+        Assert.Null(control.Value.LqcMeanDrPrime);
+        Assert.Contains(control.Value.Issues, issue => issue.Code == AnalysisErrorCodes.ControlLqcReplicateInconsistent);
+
+        RunSnapshotDto snapshot = await SnapshotAsync(gateway, runId);
+        Assert.Equal(RunStateNames.RunInvalid, snapshot.DomainState);
+        Assert.Equal([RunAction.ViewExplorer], snapshot.AllowedActions);
     }
 
     [Fact]

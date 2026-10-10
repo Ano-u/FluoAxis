@@ -1,7 +1,7 @@
 ---
 id: FX-20260913-001
 kind: fix
-status: stub
+status: in_progress
 area: application-orchestration
 stage: phase-2
 tasks:
@@ -39,7 +39,13 @@ validation:
     - cancellation or persistence failure cannot leave a transient run state
     - in-memory and SQLite repositories enforce identical route transitions
     - focused and full repository test gates pass
-  tests_run: []
+  tests_run:
+    - "dotnet build FluoAxis.slnx --no-restore: not run; .NET 10.0.400 SDK is unavailable on the current machine"
+    - "dotnet test focused and repository gates: not run for the same SDK availability limitation"
+    - "node --test web/FluoAxis.PlotHost/plot-host.test.js: 7 passed"
+    - "build/Verify-RepositoryPolicy.ps1: passed for 269 text files"
+    - "build/Verify-ScientificSourceBoundary.ps1: passed for 11 first-party presentation files"
+    - "git diff --check: passed"
   benchmarks_run: []
 search:
   aliases:
@@ -75,16 +81,21 @@ The public command boundary was modeled as a sequence of state-edge transactions
 
 ## Implementation
 
-_To be completed._
+- Added deterministic `RunStateMachine.FindPath`/`IsValidPath` validation so a public command can prove every intermediate lifecycle edge without persisting an intermediate state.
+- Calibration, Control QC, and Sample Analysis now commit one terminal mutation with the stage payload. Scientific failures route directly to `RunInvalid` in that same transaction; successful stages route to `CalibrationPassed`, `ReadyForAnalysis`, or `Analyzed`.
+- Added repository mutation lookup and exact request matching for the in-memory and SQLite adapters. Gateway retries replay the stored result and rebuild the corresponding DTO without a second revision or engine call.
+- Added focused domain, Application, and SQLite integration regression tests for lifecycle paths, exact replay, and one-revision terminal invalidation.
 
 ## Validation
 
-_To be completed._
+Static validation and non-.NET gates pass in the current environment. C# build/test execution remains pending because the checkout pins SDK `10.0.400`, while the machine has no .NET SDK installed (only runtimes). The added tests are therefore recorded as planned code coverage, not claimed as executed.
 
 ## Review outcomes
 
-_To be completed._
+Manual self-review completed for contract consistency, state-machine coverage, exact replay, SQLite transaction boundaries, relative paths, bounded persistence, and cancellation-before-mutation behavior. GitHub and Codex review were not available in this session. The implementation should remain review-pending until the pinned SDK is available and the focused/full .NET gates run.
 
 ## Follow-ups
 
-_To be completed._
+- Run the focused Application, Domain, Integration, and full Microsoft.Testing.Platform gates with .NET SDK `10.0.400`.
+- Add a persistence fault-injection test proving a payload write failure rolls back the terminal state, audit row, idempotency row, and stage result together.
+- Update the paired requirements audit after the .NET evidence is available; do not claim the Guided UI, reporting/export, Explorer formula workflow, or scientific Method/Golden approval from this fix.

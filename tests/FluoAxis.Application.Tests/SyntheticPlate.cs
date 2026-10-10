@@ -24,12 +24,17 @@ internal sealed record SyntheticPlate
     /// <summary>One sample group carries a positive and a negative replicate.</summary>
     public bool MixedSampleReplicates { get; init; }
 
+    /// <summary>When enabled, a second LQC replicate is placed on the plate and
+    /// classified on the negative side to exercise the control-conflict path.</summary>
+    public bool MixedLqcReplicates { get; init; }
+
     // Well layout: A1 = NTC, A2 = 100% positive, A3 = WT, A4 = LQC 0.1%,
     // B1/B2 = sample S-POS (both positive), C1/C2 = sample S-NEG (both negative).
     private static readonly WellId NtcWell = new('A', 1);
     private static readonly WellId PositiveWell = new('A', 2);
     private static readonly WellId WtWell = new('A', 3);
     private static readonly WellId LqcWell = new('A', 4);
+    private static readonly WellId MixedLqcWell = new('A', 5);
     private static readonly WellId PosSample1 = new('B', 1);
     private static readonly WellId PosSample2 = new('B', 2);
     private static readonly WellId NegSample1 = new('C', 1);
@@ -73,7 +78,7 @@ internal sealed record SyntheticPlate
     public IReadOnlyList<SignalSeries> BuildSeries(Guid runId)
     {
         List<SignalSeries> series = [];
-        foreach (WellId well in AllWells)
+        foreach (WellId well in Wells())
         {
             foreach (FluorescenceChannel channel in new[] { FluorescenceChannel.Fam, FluorescenceChannel.Rox })
             {
@@ -161,6 +166,11 @@ internal sealed record SyntheticPlate
             return channel == FluorescenceChannel.Fam ? 0.6 : 0.0;
         }
 
+        if (well == MixedLqcWell)
+        {
+            return channel == FluorescenceChannel.Fam ? 0.2 : 0.0;
+        }
+
         if (well == PosSample1 || well == PosSample2)
         {
             // S-POS replicates: both at 0.7 on FAM, unless the mixed flag
@@ -178,14 +188,14 @@ internal sealed record SyntheticPlate
         "FAM",
         headerRowIndex: 0,
         timeColumnIndex: 0,
-        [.. AllWells.Select((well, index) => new WellColumnMappingDto(index + 1, well.ToString()))]);
+        [.. Wells().Select((well, index) => new WellColumnMappingDto(index + 1, well.ToString()))]);
 
     private ChannelRegionMappingDto RoxRegion() => new(
         ChannelNames.Rox,
         "ROX",
         headerRowIndex: 0,
         timeColumnIndex: 0,
-        [.. AllWells.Select((well, index) => new WellColumnMappingDto(index + 1, well.ToString()))]);
+        [.. Wells().Select((well, index) => new WellColumnMappingDto(index + 1, well.ToString()))]);
 
     private static Guid Generated(Guid? requestId) => requestId ?? Guid.NewGuid();
 
@@ -216,21 +226,31 @@ internal sealed record SyntheticPlate
             new WellAssignmentDto(NtcWell.ToString(), WellRoleNames.Ntc),
             new WellAssignmentDto(PositiveWell.ToString(), WellRoleNames.Positive100),
             new WellAssignmentDto(WtWell.ToString(), WellRoleNames.WildType),
-            new WellAssignmentDto(LqcWell.ToString(), WellRoleNames.Lqc01Percent),
+            .. (MixedLqcReplicates
+                ? new[]
+                {
+                    new WellAssignmentDto(LqcWell.ToString(), WellRoleNames.Lqc01Percent),
+                    new WellAssignmentDto(MixedLqcWell.ToString(), WellRoleNames.Lqc01Percent),
+                }
+                : new[] { new WellAssignmentDto(LqcWell.ToString(), WellRoleNames.Lqc01Percent) }),
             new WellAssignmentDto(PosSample1.ToString(), WellRoleNames.Sample, sampleId: "S-POS", replicateIndex: 1),
             new WellAssignmentDto(PosSample2.ToString(), WellRoleNames.Sample, sampleId: "S-POS", replicateIndex: 2),
             new WellAssignmentDto(NegSample1.ToString(), WellRoleNames.Sample, sampleId: "S-NEG", replicateIndex: 1),
             new WellAssignmentDto(NegSample2.ToString(), WellRoleNames.Sample, sampleId: "S-NEG", replicateIndex: 2),
         ]);
 
-    public RunCalibrationCommand CalibrationCommand(Guid runId, int revision) => new(
-        Guid.NewGuid(), runId, revision, "researcher", At(20, revision));
+    public RunCalibrationCommand CalibrationCommand(Guid runId, int revision, Guid? requestId = null) => new(
+        requestId ?? Guid.NewGuid(), runId, revision, "researcher", At(20, revision));
 
-    public RunControlQcCommand ControlCommand(Guid runId, int revision) => new(
-        Guid.NewGuid(), runId, revision, "researcher", At(30, revision));
+    public RunControlQcCommand ControlCommand(Guid runId, int revision, Guid? requestId = null) => new(
+        requestId ?? Guid.NewGuid(), runId, revision, "researcher", At(30, revision));
 
-    public AnalyzeSamplesCommand AnalysisCommand(Guid runId, int revision) => new(
-        Guid.NewGuid(), runId, revision, "researcher", At(40, revision));
+    public AnalyzeSamplesCommand AnalysisCommand(Guid runId, int revision, Guid? requestId = null) => new(
+        requestId ?? Guid.NewGuid(), runId, revision, "researcher", At(40, revision));
 
     public static SyntheticPlate Passing() => new();
+
+    private IReadOnlyList<WellId> Wells() => MixedLqcReplicates
+        ? [.. AllWells, MixedLqcWell]
+        : AllWells;
 }

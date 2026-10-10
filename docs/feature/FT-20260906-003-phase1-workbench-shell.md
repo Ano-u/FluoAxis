@@ -113,7 +113,7 @@ Not applicable. This is an intentional Phase 1 product-surface capability.
 
 - Added a Presentation-owned `WorkbenchViewModel` with explicit Initial, Loading, Ready, Empty, recoverable-error, and fatal-error states; project/Run loading, cancellation, correlation data, and stale-response suppression are covered without reproducing Domain transition rules.
 - Replaced the PlotHost-only window with a `NavigationView`, non-closable project `TabView`, Guided stage rail, central stage surface, Run context panel, global `InfoBar`, progress state, and persistent RUO identity.
-- Bound the Shell to the existing capability-honest Fake Gateway. Stage inspection remains navigable, while unsupported mutations stay disabled even when the backend advertises an upstream action that lacks picker/orchestration support.
+- The initial shell used the capability-honest Fake Gateway. The current checkout now composes the real `ApplicationGateway` over the in-process repository, while unsupported operations still stay disabled when their picker/staging or orchestration boundary is absent.
 - Retained the existing PlotHost as a lazy Explorer surface and preserved 2D/3D/export controls. Benchmark launch modes now select Explorer and initialize PlotHost automatically, preventing the Shell default view from suppressing benchmark execution.
 - Kept the slice path-free: it adds no picker, external source path, persistence field, archive entry, report, or scientific calculation.
 - Used BCL `INotifyPropertyChanged` rather than adding a new package download. The current code-behind still owns navigation and PlotHost lifecycle and is explicitly a transitional Shell, not a completed MVVM production surface.
@@ -138,7 +138,7 @@ Not applicable. This is an intentional Phase 1 product-surface capability.
 - Capability honesty: stage navigation is a skeleton; no unavailable workflow reports success. Reports and diagnostics explicitly state their incomplete scope.
 - Data/path: no path-bearing application DTO or persisted value was added; strengthened path gates remain green.
 - Tests: ViewModel state, cancellation, stale completion, error/correlation, action availability, and navigation-only state are covered. WinUI automation and live interaction are not yet covered.
-- Architecture: `MainWindow.xaml.cs` remains larger than the desired production ownership boundary. Splitting navigation, operation surfaces, and Plot control is a follow-up before the Shell is treated as production MVVM.
+- Architecture: `MainWindow.xaml.cs` remains larger than the desired production ownership boundary. Splitting navigation, operation surfaces, and Plot control is a follow-up before the Shell is treated as production MVVM. Durable SQLite workspace composition is still pending.
 - Delegated concern reviews and primary-agent self-review are complete. GitHub review was not invoked.
 
 ## Follow-ups

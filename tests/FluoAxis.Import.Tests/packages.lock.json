@@ -149,6 +149,7 @@
         "type": "Project",
         "dependencies": {
           "DocumentFormat.OpenXml": "[3.5.1, )",
+          "ExcelDataReader": "[3.7.0, )",
           "FluoAxis.Domain": "[1.0.0, )"
         }
       },
@@ -160,6 +161,12 @@
         "dependencies": {
           "DocumentFormat.OpenXml.Framework": "3.5.1"
         }
+      },
+      "ExcelDataReader": {
+        "type": "CentralTransitive",
+        "requested": "[3.7.0, )",
+        "resolved": "3.7.0",
+        "contentHash": "AMv3oDETRHSRyXC17rBtKH45qIfFyo433LMeaMB3u4RNr/c9Luuc0Z+JMP6+3Cx9n4wXqFqcrEIVxrf/GgYnZg=="
       }
     }
   }

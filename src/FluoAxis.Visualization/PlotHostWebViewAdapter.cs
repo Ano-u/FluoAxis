@@ -8,12 +8,14 @@ using Microsoft.Web.WebView2.Core;
 public sealed class PlotHostWebViewAdapter : IDisposable
 {
     private readonly WebView2 webView;
+    private readonly Func<Task<CoreWebView2Environment>> environmentFactory;
     private bool initialized;
     private bool disposed;
 
-    public PlotHostWebViewAdapter(WebView2 webView)
+    public PlotHostWebViewAdapter(WebView2 webView, Func<Task<CoreWebView2Environment>> environmentFactory)
     {
         this.webView = webView ?? throw new ArgumentNullException(nameof(webView));
+        this.environmentFactory = environmentFactory ?? throw new ArgumentNullException(nameof(environmentFactory));
     }
 
     public event EventHandler<TrustedPlotMessageEventArgs>? TrustedMessageReceived;
@@ -28,7 +30,8 @@ public sealed class PlotHostWebViewAdapter : IDisposable
 
         try
         {
-            await webView.EnsureCoreWebView2Async();
+            CoreWebView2Environment environment = await environmentFactory();
+            await webView.EnsureCoreWebView2Async(environment);
         }
         catch (Exception error) when (error is InvalidOperationException or System.Runtime.InteropServices.COMException)
         {

@@ -173,6 +173,28 @@ public sealed class GoldenCandidateTests
         Assert.Equal(baseline.ProductionSample.Call, scaled.ProductionSample.Call);
     }
 
+    [Fact]
+    public void Deterministic_two_dimensional_reference_sweep_matches_all_intermediates_and_calls()
+    {
+        var random = new Random(20261007);
+        for (int vector = 0; vector < 512; vector++)
+        {
+            double wtFam = (random.NextDouble() - 0.5) * 0.06;
+            double wtRox = (random.NextDouble() - 0.5) * 0.06;
+            double sampleFam = random.NextDouble() - 0.2;
+            double sampleRox = random.NextDouble() - 0.2;
+            Candidate candidate = Standard(0.6) with
+            {
+                Wt = [AtY("C1", wtFam, wtRox), AtY("C2", wtFam, wtRox)],
+                Samples = [AtY("E1", sampleFam, sampleRox), AtY("E2", sampleFam, sampleRox)],
+            };
+            ChainComparison comparison = RunBoth(Scale(candidate, 0.25 + random.NextDouble() * 200));
+            AssertCalibrationEqual(comparison.ReferenceCalibration, comparison.ProductionCalibration);
+            AssertControlsEqual(comparison.ReferenceControls, comparison.ProductionControls);
+            AssertSampleEqual(comparison.ReferenceSample, comparison.ProductionSample);
+        }
+    }
+
     private static void AssertCalibrationFailure(Candidate candidate, string code, bool expectedValid)
     {
         Oracle.Calibration reference = Oracle.Calibrate(candidate.Positives, candidate.Ntcs, ReferenceMethod);

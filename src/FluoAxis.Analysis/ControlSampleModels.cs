@@ -16,14 +16,18 @@ public sealed record WellEndpointY
     public int? FamEndpointPointIndex { get; }
     /// <summary>Endpoint point index of the ROX series.</summary>
     public int? RoxEndpointPointIndex { get; }
+    public SignalPoint? FamEndpoint { get; }
+    public SignalPoint? RoxEndpoint { get; }
 
-    public WellEndpointY(WellId well, double? yFam, double? yRox, int? famEndpointPointIndex, int? roxEndpointPointIndex)
+    public WellEndpointY(WellId well, double? yFam, double? yRox, int? famEndpointPointIndex, int? roxEndpointPointIndex,
+        SignalPoint? famEndpoint = null, SignalPoint? roxEndpoint = null)
     {
         Well = well;
         YFam = yFam;
         YRox = yRox;
         FamEndpointPointIndex = famEndpointPointIndex;
         RoxEndpointPointIndex = roxEndpointPointIndex;
+        FamEndpoint = famEndpoint; RoxEndpoint = roxEndpoint;
     }
 }
 
@@ -87,8 +91,12 @@ public sealed record ControlQcResult
     /// </summary>
     public DrPrimeCall? LqcDirection { get; }
 
+    /// <summary>Engine-computed mean after direction consistency, including a consistent Negative QC failure; null for an uncomputed or mixed group.</summary>
+    public double? LqcMeanDrPrime { get; }
+
     public QcStatus QcStatus { get; }
     public IReadOnlyList<WellDiagnostic> Diagnostics { get; }
+    public WtReference? EvaluatedWtReference { get; }
 
     public ControlQcResult(
         IReadOnlyList<WellEndpointY> wtWells,
@@ -96,14 +104,18 @@ public sealed record ControlQcResult
         WtReference? wtReference,
         QcStatus qcStatus,
         IReadOnlyList<WellDiagnostic> diagnostics,
-        DrPrimeCall? lqcDirection = null)
+        DrPrimeCall? lqcDirection = null,
+        WtReference? evaluatedWtReference = null,
+        double? lqcMeanDrPrime = null)
     {
-        WtWells = wtWells;
-        LqcWells = lqcWells;
+        WtWells = Array.AsReadOnly(wtWells.ToArray());
+        LqcWells = Array.AsReadOnly(lqcWells.ToArray());
         WtReference = wtReference;
         LqcDirection = lqcDirection;
+        LqcMeanDrPrime = lqcMeanDrPrime;
         QcStatus = qcStatus;
-        Diagnostics = diagnostics;
+        Diagnostics = Array.AsReadOnly(diagnostics.ToArray());
+        EvaluatedWtReference = evaluatedWtReference ?? wtReference;
     }
 }
 
@@ -115,8 +127,8 @@ public sealed record ControlQcInput
 
     public ControlQcInput(IReadOnlyList<WellSignals> wtWells, IReadOnlyList<WellSignals> lqcWells)
     {
-        WtWells = wtWells ?? [];
-        LqcWells = lqcWells ?? [];
+        WtWells = Array.AsReadOnly((wtWells ?? []).ToArray());
+        LqcWells = Array.AsReadOnly((lqcWells ?? []).ToArray());
     }
 }
 
@@ -165,7 +177,7 @@ public sealed record SampleResult
         Call = call;
         Direction = direction;
         MeanDrPrime = meanDrPrime;
-        Wells = wells;
+        Wells = Array.AsReadOnly(wells.ToArray());
         ErrorCode = errorCode;
     }
 }
@@ -181,7 +193,7 @@ public sealed record SampleGroup
         ArgumentException.ThrowIfNullOrWhiteSpace(sampleId);
 
         SampleId = sampleId;
-        Wells = wells ?? [];
+        Wells = Array.AsReadOnly((wells ?? []).ToArray());
     }
 }
 
@@ -212,7 +224,7 @@ public sealed record SampleAnalysisInput
         QcStatus controlStatus = QcStatus.Pass,
         bool hasWtReference = true)
     {
-        Samples = samples ?? [];
+        Samples = Array.AsReadOnly((samples ?? []).ToArray());
         ControlStatus = controlStatus;
         HasWtReference = hasWtReference;
     }
@@ -228,6 +240,6 @@ public sealed record SampleAnalysisResult
 
     public SampleAnalysisResult(IReadOnlyList<SampleResult> results)
     {
-        Results = results;
+        Results = Array.AsReadOnly(results.ToArray());
     }
 }

@@ -20,6 +20,19 @@ public sealed record RunMutationRequest
     public DateTimeOffset IssuedUtc { get; }
     public int ContractVersion { get; }
     public string EventType { get; }
+    public IReadOnlyList<RunState> TransitionPath { get; }
+
+    public bool Matches(RunMutationRequest? other) =>
+        other is not null
+        && RequestId == other.RequestId
+        && RunId == other.RunId
+        && ExpectedRunRevision == other.ExpectedRunRevision
+        && ExpectedState == other.ExpectedState
+        && TargetState == other.TargetState
+        && string.Equals(ActorId, other.ActorId, StringComparison.Ordinal)
+        && IssuedUtc == other.IssuedUtc
+        && ContractVersion == other.ContractVersion
+        && string.Equals(EventType, other.EventType, StringComparison.Ordinal);
 
     public RunMutationRequest(
         Guid requestId,
@@ -30,7 +43,8 @@ public sealed record RunMutationRequest
         string actorId,
         DateTimeOffset issuedUtc,
         int contractVersion,
-        string eventType)
+        string eventType,
+        IReadOnlyList<RunState>? transitionPath = null)
     {
         if (requestId == Guid.Empty)
         {
@@ -65,6 +79,9 @@ public sealed record RunMutationRequest
         IssuedUtc = issuedUtc;
         ContractVersion = contractVersion;
         EventType = eventType;
+        TransitionPath = transitionPath is null
+            ? RunStateMachine.FindPath(expectedState, targetState) ?? [expectedState, targetState]
+            : [.. transitionPath];
     }
 }
 

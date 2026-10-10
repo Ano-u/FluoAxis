@@ -18,17 +18,20 @@ public sealed class FilesystemBoundaryGroup
 [Collection(FilesystemBoundaryGroup.Name)]
 public sealed class ManagedImportInspectionAdapterTests
 {
-    [Fact]
-    public async Task Inspect_csv_returns_candidate_dto_and_progress_without_mutating_content()
+    [Theory]
+    [InlineData("csv", "csv")]
+    [InlineData("txt", SourceFileDto.MediaTypeNames.Txt)]
+    public async Task Inspect_delimited_source_returns_candidate_dto_and_progress_without_mutating_content(string extension, string formatHint)
     {
         using TestWorkspace workspace = new();
         byte[] content = Encoding.UTF8.GetBytes("Time,A1,A2\r\n0,100,200\r\n2,101,201");
-        workspace.Write("data/raw/run.csv", content);
+        string relativeResource = $"data/raw/run.{extension}";
+        workspace.Write(relativeResource, content);
         var progress = new ProgressRecorder();
         var adapter = new ManagedImportInspectionAdapter(workspace.Root);
 
         Result<ImportPreviewDto> result = await adapter.InspectAsync(
-            Request("run.csv", content.Length, "data/raw/run.csv", "csv"),
+            Request($"run.{extension}", content.Length, relativeResource, formatHint),
             progress,
             TestContext.Current.CancellationToken);
 
@@ -42,7 +45,7 @@ public sealed class ManagedImportInspectionAdapterTests
         Assert.Equal(
             [ImportStageNames.DetectingFormat, ImportStageNames.DiscoveringRegion, ImportStageNames.Validating, ImportStageNames.Validating],
             progress.Items.Select(item => item.Stage));
-        Assert.Equal(content, workspace.Read("data/raw/run.csv"));
+        Assert.Equal(content, workspace.Read(relativeResource));
     }
 
     [Fact]

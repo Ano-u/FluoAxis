@@ -91,11 +91,12 @@ public sealed record SourceFileDto
         return originalExtension switch
         {
             ".xlsx" => MediaTypeNames.Xlsx,
+            ".xls" => MediaTypeNames.Xls,
             ".csv" => MediaTypeNames.Csv,
             ".tsv" => MediaTypeNames.Tsv,
             ".txt" => MediaTypeNames.Txt,
             _ => throw new ArgumentException(
-                "Source files must use a supported XLSX, CSV, TSV, or TXT extension.",
+                "Source files must use a supported XLSX, XLS, CSV, TSV, or TXT extension.",
                 nameof(originalFileName)),
         };
     }
@@ -103,6 +104,7 @@ public sealed record SourceFileDto
     public static class MediaTypeNames
     {
         public const string Xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        public const string Xls = "application/vnd.ms-excel";
         public const string Csv = "text/csv";
         public const string Tsv = "text/tab-separated-values";
         public const string Txt = "text/plain";

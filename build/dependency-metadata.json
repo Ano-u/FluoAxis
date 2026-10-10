@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "securitySource": "https://github.com/advisories",
   "packages": [
+    { "id": "ExcelDataReader", "license": "MIT", "source": "https://github.com/ExcelDataReader/ExcelDataReader", "owner": "FluoAxis Import", "upgradePolicy": "Isolated upgrade with legacy BIFF/OLE fixture, malformed input and bounded parsing regression", "replacementPlan": "Retain IImporter and replace only with a maintained non-COM read-only BIFF adapter" },
     { "id": "DocumentFormat.OpenXml", "license": "MIT", "source": "https://github.com/dotnet/Open-XML-SDK", "owner": "FluoAxis Import", "upgradePolicy": "Isolated change with importer fixture and malformed-input regression", "replacementPlan": "Replace only with another non-COM streaming OOXML adapter after compatibility evidence" },
     { "id": "DocumentFormat.OpenXml.Framework", "license": "MIT", "source": "https://github.com/dotnet/Open-XML-SDK", "owner": "FluoAxis Import", "upgradePolicy": "Transitive through DocumentFormat.OpenXml; review with its direct upgrade", "replacementPlan": "Follows the direct DocumentFormat.OpenXml replacement" },
     { "id": "Microsoft.ApplicationInsights", "license": "MIT", "source": "https://github.com/microsoft/ApplicationInsights-dotnet", "owner": "FluoAxis Test Infrastructure", "upgradePolicy": "Transitive test-only dependency; review on xUnit/Test Platform upgrade", "replacementPlan": "Remove with the parent test runner if no longer required" },

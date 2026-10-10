@@ -7,10 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="**\*.Windows.cs" />
     <ProjectReference Include="..\FluoAxis.Application\FluoAxis.Application.csproj" />
     <ProjectReference Include="..\FluoAxis.Contracts\FluoAxis.Contracts.csproj" />
     <ProjectReference Include="..\FluoAxis.Domain\FluoAxis.Domain.csproj" />
     <ProjectReference Include="..\FluoAxis.Import\FluoAxis.Import.csproj" />
+    <ProjectReference Include="..\FluoAxis.Persistence\FluoAxis.Persistence.csproj" />
+    <ProjectReference Include="..\FluoAxis.ProjectFormat\FluoAxis.ProjectFormat.csproj" />
+    <ProjectReference Include="..\FluoAxis.Reporting\FluoAxis.Reporting.csproj" />
   </ItemGroup>
 
 </Project>

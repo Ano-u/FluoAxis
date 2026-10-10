@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/FluoAxis.Reporting/FluoAxis.Reporting.csproj" />
     <Project Path="src/FluoAxis.Analysis/FluoAxis.Analysis.csproj" />
     <Project Path="src/FluoAxis.App/FluoAxis.App.csproj" />
     <Project Path="src/FluoAxis.Application/FluoAxis.Application.csproj" />
@@ -14,6 +15,7 @@
     <Project Path="src/FluoAxis.ProjectFormat/FluoAxis.ProjectFormat.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FluoAxis.Reporting.Tests/FluoAxis.Reporting.Tests.csproj" />
     <Project Path="tests/FluoAxis.Architecture.Tests/FluoAxis.Architecture.Tests.csproj" />
     <Project Path="tests/FluoAxis.Analysis.Tests/FluoAxis.Analysis.Tests.csproj" />
     <Project Path="tests/FluoAxis.Application.Tests/FluoAxis.Application.Tests.csproj" />

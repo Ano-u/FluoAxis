@@ -37,6 +37,8 @@ public sealed record SignalSeries
 
         for (int i = 0; i < copy.Length; i++)
         {
+            if (copy[i].SourceRowIndex is < 0 || copy[i].SourceColumnIndex is < 0)
+                throw new ArgumentException("Source coordinates must be non-negative when recorded.", nameof(points));
             if (!double.IsFinite(copy[i].Rfu))
             {
                 throw new ArgumentException($"Point {i} has a non-finite RFU value; NaN and Infinity are rejected.", nameof(points));
@@ -52,6 +54,8 @@ public sealed record SignalSeries
             }
         }
 
-        return new SignalSeries(runId, well, channel, copy);
+        // IReadOnlyList alone does not prevent a caller from casting an array
+        // back to SignalPoint[] and replacing a validated Raw RFU point.
+        return new SignalSeries(runId, well, channel, Array.AsReadOnly(copy));
     }
 }

@@ -87,6 +87,12 @@ internal static class ImportErrors
         $"The time column value at row {rowNumber} is missing or not numeric.",
         $"row={rowNumber};col={columnIndex};field=time");
 
+    public static AppError InvalidTimeRange(int rowNumber) => new(
+        ImportErrorCodes.ImportInvalidValue,
+        ErrorSeverity.Blocking,
+        $"The elapsed time at row {rowNumber} is outside the supported range.",
+        $"row={rowNumber};field=time;reason=range");
+
     public static AppError InvalidMapping(string detail) => new(
         ImportErrorCodes.ImportInvalidMapping,
         ErrorSeverity.Blocking,

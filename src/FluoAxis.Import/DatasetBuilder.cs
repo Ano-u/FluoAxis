@@ -15,9 +15,14 @@ internal sealed class DatasetBuilder
 {
     private readonly Guid _runId;
 
-    public DatasetBuilder(Guid runId)
+    private readonly double minutesPerUnit;
+    private readonly ImportReadOptions? parsing;
+
+    public DatasetBuilder(Guid runId, ImportReadOptions? options = null)
     {
         _runId = runId;
+        minutesPerUnit = options?.MinutesPerUnit ?? 1;
+        parsing = options;
     }
 
     /// <summary>Row callback contract used while streaming a region.</summary>
@@ -82,9 +87,9 @@ internal sealed class DatasetBuilder
     }
 
     /// <summary>One raw time/value pair with its origin row number for error reporting.</summary>
-    private readonly record struct RawObservation(double Minutes, double Rfu, int RowNumber);
+    private readonly record struct RawObservation(double Minutes, double Rfu, int RowNumber, int ColumnIndex);
 
-    private static Result<Dictionary<WellId, List<RawObservation>>> CollectObservations(
+    private Result<Dictionary<WellId, List<RawObservation>>> CollectObservations(
         ChannelRegionMapping mapping,
         IRowSource source,
         CancellationToken cancellationToken)
@@ -105,8 +110,9 @@ internal sealed class DatasetBuilder
             }
 
             RawRow row = rowResult.Value!;
+            if (mapping.EndRowIndex is { } end && row.RowIndex > end) break;
             if (!TryGetCell(row, mapping.TimeColumnIndex, out RawCell timeCell)
-                || !timeCell.TryGetNumber(out double minutes))
+                || !TryNumber(timeCell, out double minutes))
             {
                 return Result<Dictionary<WellId, List<RawObservation>>>.Fail(
                     ImportErrors.InvalidTimeValue(row.RowIndex + 1, mapping.TimeColumnIndex));
@@ -114,7 +120,7 @@ internal sealed class DatasetBuilder
 
             foreach ((int columnIndex, WellId well) in mapping.WellColumns)
             {
-                if (!TryGetCell(row, columnIndex, out RawCell cell) || !cell.TryGetNumber(out double rfu))
+                if (!TryGetCell(row, columnIndex, out RawCell cell) || !TryNumber(cell, out double rfu))
                 {
                     // Empty or non-numeric required cell: fail closed with well
                     // and position (Data-Contract: empty never becomes 0).
@@ -122,7 +128,7 @@ internal sealed class DatasetBuilder
                         ImportErrors.InvalidValue(row.RowIndex + 1, columnIndex, $"well={well}"));
                 }
 
-                byWell[well].Add(new RawObservation(minutes, rfu, row.RowIndex + 1));
+                byWell[well].Add(new RawObservation(minutes, rfu, row.RowIndex + 1, columnIndex));
             }
         }
 
@@ -159,7 +165,13 @@ internal sealed class DatasetBuilder
                     }
                 }
 
-                points.Add(new SignalPoint(MinutesToTimeSpan(observation.Minutes - t0), observation.Rfu));
+                if (!TryMinutesToTimeSpan((observation.Minutes - t0) * minutesPerUnit, out TimeSpan elapsed))
+                {
+                    return Result<List<SignalSeries>>.Fail(
+                        ImportErrors.InvalidTimeRange(observation.RowNumber));
+                }
+
+                points.Add(new SignalPoint(elapsed, observation.Rfu, observation.RowNumber - 1, observation.ColumnIndex));
                 previousMinutes = observation.Minutes;
             }
 
@@ -182,14 +194,19 @@ internal sealed class DatasetBuilder
         return Result<List<SignalSeries>>.Ok(series);
     }
 
-    internal static TimeSpan MinutesToTimeSpan(double minutes)
+    private static bool TryMinutesToTimeSpan(double minutes, out TimeSpan elapsed)
     {
-        if (!double.IsFinite(minutes))
+        elapsed = default;
+        double ticks = Math.Round(minutes * TimeSpan.TicksPerMinute, MidpointRounding.ToEven);
+        // long.MaxValue rounds upward to 2^63 when converted to double.
+        // Test the exclusive upper bound directly before the checked cast.
+        if (!double.IsFinite(ticks) || ticks < (double)long.MinValue || ticks >= -(double)long.MinValue)
         {
-            throw new ArgumentOutOfRangeException(nameof(minutes), minutes, "Elapsed minutes must be finite.");
+            return false;
         }
 
-        return new TimeSpan((long)Math.Round(minutes * TimeSpan.TicksPerMinute));
+        elapsed = new TimeSpan(checked((long)ticks));
+        return true;
     }
 
     private static bool TryGetCell(RawRow row, int columnIndex, out RawCell cell)
@@ -204,6 +221,14 @@ internal sealed class DatasetBuilder
         }
 
         cell = default;
+        return false;
+    }
+
+    private bool TryNumber(RawCell cell, out double value)
+    {
+        if (cell.Number is not null || parsing is null) return cell.TryGetNumber(out value);
+        if (cell.Text is { } text) return parsing.TryParseFinite(text, out value);
+        value = default;
         return false;
     }
 
@@ -245,7 +270,14 @@ internal sealed class DatasetBuilder
 
             for (int i = 0; i < famRows.Count; i++)
             {
-                if (MinutesToTimeSpan(famRows[i].Minutes) != MinutesToTimeSpan(roxRows[i].Minutes))
+                if (!TryMinutesToTimeSpan(famRows[i].Minutes, out TimeSpan famTime)
+                    || !TryMinutesToTimeSpan(roxRows[i].Minutes, out TimeSpan roxTime))
+                {
+                    error = ImportErrors.InvalidTimeRange(famRows[i].RowNumber);
+                    return false;
+                }
+
+                if (famTime != roxTime)
                 {
                     error = ImportErrors.ChannelTimeAxisMismatch();
                     return false;

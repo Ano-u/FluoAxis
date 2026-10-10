@@ -95,6 +95,18 @@ public class BrafMethodSnapshotTests
     }
 
     [Fact]
+    public void Constructor_rejects_elapsed_time_values_beyond_timespan_range()
+    {
+        Assert.Throws<ArgumentException>(() => new BrafMethodSnapshot(
+            endpointMinutes: TimeSpan.MaxValue.TotalMinutes + 1));
+        Assert.Throws<ArgumentException>(() => new BrafMethodSnapshot(
+            endpointToleranceSeconds: TimeSpan.MaxValue.TotalSeconds + 1));
+        Assert.Throws<ArgumentException>(() => new PlateauSpec(
+            startMinutes: TimeSpan.MaxValue.TotalMinutes + 1,
+            endMinutes: TimeSpan.MaxValue.TotalMinutes + 2));
+    }
+
+    [Fact]
     public void Constructor_rejects_reversed_plateau_window()
     {
         Assert.Throws<ArgumentException>(() => new BrafMethodSnapshot(plateau: new PlateauSpec(startMinutes: 120.0, endMinutes: 90.0)));
@@ -121,5 +133,22 @@ public class BrafMethodSnapshotTests
             classification: new ClassificationSpec(drPrimeThresholdInclusive: -0.4)));
         Assert.Throws<ArgumentException>(() => new BrafMethodSnapshot(
             roles: new RoleCardinalitySpec(ntcMinimumWells: -1)));
+    }
+
+    [Fact]
+    public void Legacy_zero_role_minimum_and_false_consistency_flag_are_preserved()
+    {
+        BrafMethodSnapshot legacy = new(
+            replicates: new ReplicateSpec(requireClassificationConsistency: false),
+            roles: new RoleCardinalitySpec(0, 0, 0, 0));
+
+        Assert.False(legacy.Replicates.RequireClassificationConsistency);
+        Assert.Equal(0, legacy.Roles.NtcMinimumWells);
+        Assert.Equal(0, legacy.Roles.Positive100MinimumWells);
+        Assert.Equal(0, legacy.Roles.WildTypeMinimumWells);
+        Assert.Equal(0, legacy.Roles.Lqc01PercentMinimumWells);
+        Assert.NotEqual(BrafMethodSnapshot.Default.ComputeCanonicalHash(), legacy.ComputeCanonicalHash());
+        Assert.NotEqual((legacy with { Replicates = ReplicateSpec.Default }).ComputeCanonicalHash(), legacy.ComputeCanonicalHash());
+        Assert.NotEqual((legacy with { Roles = RoleCardinalitySpec.Default }).ComputeCanonicalHash(), legacy.ComputeCanonicalHash());
     }
 }

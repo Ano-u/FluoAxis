@@ -46,7 +46,7 @@ public static class Fixture
             timeColumnIndex: 0,
             wellColumns: new Dictionary<int, WellId> { [1] = new WellId('A', 1), [2] = new WellId('A', 2) }));
 
-    /// <summary>Mapping for a single-region file (both channels on one body).</summary>
+    /// <summary>Mapping for one text body with separate FAM and ROX signal columns.</summary>
     public static DataMapping BodyMapping() => new(
         RunId,
         new ChannelRegionMapping(
@@ -60,7 +60,7 @@ public static class Fixture
             DelimitedTextImporter.BodySheetName,
             headerRowIndex: 0,
             timeColumnIndex: 0,
-            wellColumns: new Dictionary<int, WellId> { [1] = new WellId('A', 1), [2] = new WellId('A', 2) }));
+            wellColumns: new Dictionary<int, WellId> { [3] = new WellId('A', 1), [4] = new WellId('A', 2) }));
 
     /// <summary>Escapes one CSV field with RFC 4180 quoting when required.</summary>
     public static string CsvEscape(string field)

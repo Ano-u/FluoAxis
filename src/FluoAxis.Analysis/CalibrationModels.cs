@@ -10,8 +10,8 @@ public sealed record CalibrationInput
 
     public CalibrationInput(IReadOnlyList<WellSignals> positive100Wells, IReadOnlyList<WellSignals> ntcWells)
     {
-        Positive100Wells = positive100Wells ?? [];
-        NtcWells = ntcWells ?? [];
+        Positive100Wells = Array.AsReadOnly((positive100Wells ?? []).ToArray());
+        NtcWells = Array.AsReadOnly((ntcWells ?? []).ToArray());
     }
 }
 
@@ -28,14 +28,19 @@ public sealed record PositiveWellResult
     public PlateauEvaluation Plateau { get; }
     public double? Fm { get; }
     public int? EndpointPointIndex { get; }
+    public SignalPoint? Endpoint { get; }
+    public IReadOnlyList<EvaluatedPoint> WindowPoints { get; }
 
-    public PositiveWellResult(WellId well, FluorescenceChannel channel, PlateauEvaluation plateau, double? fm, int? endpointPointIndex)
+    public PositiveWellResult(WellId well, FluorescenceChannel channel, PlateauEvaluation plateau, double? fm, int? endpointPointIndex,
+        SignalPoint? endpoint = null, IReadOnlyList<EvaluatedPoint>? windowPoints = null)
     {
         Well = well;
         Channel = channel;
         Plateau = plateau;
         Fm = fm;
         EndpointPointIndex = endpointPointIndex;
+        Endpoint = endpoint;
+        WindowPoints = Array.AsReadOnly((windowPoints ?? []).ToArray());
     }
 }
 
@@ -80,15 +85,23 @@ public sealed record NtcWellResult
     public int QcPointCount { get; }
 
     public IReadOnlyList<NtcPointDiagnostic> OutOfBandPoints { get; }
+    public SignalPoint? Endpoint { get; }
+    public IReadOnlyList<EvaluatedPoint> QcPoints { get; }
+    public double? MinimumY { get; }
+    public double? MaximumY { get; }
+    public double? Denominator { get; }
 
-    public NtcWellResult(WellId well, FluorescenceChannel channel, double fb, int endpointPointIndex, int qcPointCount, IReadOnlyList<NtcPointDiagnostic> outOfBandPoints)
+    public NtcWellResult(WellId well, FluorescenceChannel channel, double fb, int endpointPointIndex, int qcPointCount, IReadOnlyList<NtcPointDiagnostic> outOfBandPoints,
+        SignalPoint? endpoint = null, IReadOnlyList<EvaluatedPoint>? qcPoints = null, double? minimumY = null, double? maximumY = null, double? denominator = null)
     {
         Well = well;
         Channel = channel;
         Fb = fb;
         EndpointPointIndex = endpointPointIndex;
         QcPointCount = qcPointCount;
-        OutOfBandPoints = outOfBandPoints;
+        OutOfBandPoints = Array.AsReadOnly(outOfBandPoints.ToArray());
+        Endpoint = endpoint; QcPoints = Array.AsReadOnly((qcPoints ?? []).ToArray());
+        MinimumY = minimumY; MaximumY = maximumY; Denominator = denominator;
     }
 }
 
@@ -122,11 +135,11 @@ public sealed record CalibrationResult
         QcStatus qcStatus,
         IReadOnlyList<WellDiagnostic> diagnostics)
     {
-        PositiveWells = positiveWells;
-        NtcWells = ntcWells;
-        RunFm = runFm;
-        RunFb = runFb;
+        PositiveWells = Array.AsReadOnly(positiveWells.ToArray());
+        NtcWells = Array.AsReadOnly(ntcWells.ToArray());
+        RunFm = new System.Collections.ObjectModel.ReadOnlyDictionary<FluorescenceChannel, double>(runFm.ToDictionary());
+        RunFb = new System.Collections.ObjectModel.ReadOnlyDictionary<FluorescenceChannel, double>(runFb.ToDictionary());
         QcStatus = qcStatus;
-        Diagnostics = diagnostics;
+        Diagnostics = Array.AsReadOnly(diagnostics.ToArray());
     }
 }

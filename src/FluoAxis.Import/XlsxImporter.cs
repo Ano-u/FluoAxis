@@ -163,7 +163,7 @@ public sealed class XlsxImporter : IImporter
             var famSource = new XlsxRowSource(famPart, sharedStrings, limits, budget);
             var roxSource = new XlsxRowSource(roxPart, sharedStrings, limits, budget);
 
-            return new DatasetBuilder(mapping.RunId).Build(
+            return new DatasetBuilder(mapping.RunId, mapping.Options).Build(
                 mapping.Fam,
                 famSource,
                 mapping.Rox,

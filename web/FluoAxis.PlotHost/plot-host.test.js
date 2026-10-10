@@ -147,12 +147,33 @@ test("3D rendering accepts WebGL1 and locks the camera and screen-relative axes"
     ],
   );
   assert.equal(harness.plotly.lastLayout.scene.aspectmode, "manual");
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.plotly.lastLayout.margin)), { l: 75, r: 28, t: 54, b: 62 });
   assert.deepEqual(
     JSON.parse(JSON.stringify(harness.plotly.lastLayout.scene.aspectratio)),
     { x: 1, y: 1, z: 1 },
   );
   assert.deepEqual(Array.from(harness.plotly.lastLayout.scene.xaxis.range), [0, 2]);
   assert.equal(harness.plotly.lastLayout.uirevision, renderMessage().plotId);
+});
+
+test("constant Raw RFU remains unchanged while axes receive readable margins", async () => {
+  const harness = createHarness();
+  const message = twoDimensionalMessage(3);
+  message.payload.spec.kind = "Line2D";
+  message.payload.data.points.forEach((point, index) => { point.x = [0, 90, 120][index]; point.y = 1000; });
+  await harness.message(message);
+  assert.deepEqual(Array.from(harness.plot.data[0].y), [1000, 1000, 1000]);
+  assert.equal(harness.plotly.lastLayout.autosize, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.plotly.lastLayout.margin)), { l: 75, r: 28, t: 54, b: 62 });
+  assert.equal(harness.plotly.lastLayout.yaxis.range, undefined);
+});
+
+test("local CSP permits Plotly dynamic styles while blocking inline scripts and connections", () => {
+  const html = fs.readFileSync(path.join(__dirname, "plot-host.html"), "utf8");
+  assert.match(html, /style-src 'self' 'unsafe-inline'/);
+  assert.match(html, /script-src 'self';/);
+  assert.match(html, /connect-src 'none'/);
+  assert.doesNotMatch(html, /script-src[^;]*unsafe-inline/);
 });
 
 test("point and selection events preserve exact identities while camera changes are ignored", async () => {
@@ -183,6 +204,12 @@ test("reset and selection acknowledgements retain the command request identifier
   assert.equal(harness.posted.at(-1).type, "plot.selectionChanged");
   assert.equal(harness.posted.at(-1).requestId, "selection-request");
   assert.deepEqual(Array.from(harness.posted.at(-1).payload.pointIds), ["p-1"]);
+  await harness.message({
+    ...renderMessage(), type: "plot.setSelection", requestId: "clear-selection", payload: { pointIds: [] },
+  });
+  assert.equal(harness.posted.at(-1).requestId, "clear-selection");
+  assert.deepEqual(Array.from(harness.posted.at(-1).payload.pointIds), []);
+  assert.ok(harness.plotly.restyleCalls.at(-1).selectedpoints.every(value => value === null));
 });
 
 test("non-render commands require the exact active plot and generation", async () => {
@@ -255,4 +282,39 @@ test("large 2D datasets use scattergl while small datasets retain SVG scatter", 
   const small = createHarness();
   await small.message(twoDimensionalMessage(9_999));
   assert.equal(small.plot.data[0].type, "scatter");
+});
+
+test("WebGL plots reject vector SVG but still export PNG", async () => {
+  const harness = createHarness();
+  const message = twoDimensionalMessage(10_000);
+  await harness.message(message);
+  await harness.message({ ...message, type: "plot.export", payload: { format: "Svg", width: 1600, height: 900, scale: 1 } });
+  assert.equal(harness.posted.at(-1).type, "plot.error");
+  assert.equal(harness.posted.at(-1).payload.code, "PLOT_EXPORT_FORMAT_UNAVAILABLE");
+  await harness.message({ ...message, type: "plot.export", payload: { format: "Png", width: 1600, height: 900, scale: 1 } });
+  assert.equal(harness.posted.at(-1).type, "plot.exportCompleted");
+});
+
+test("2D research error bars use the supplied bounded point values without calculation", async () => {
+  const harness = createHarness();
+  const message = twoDimensionalMessage(2);
+  message.payload.spec.kind = "ScatterLine2D";
+  message.payload.data.points[0].errorY = 0.25;
+  message.payload.data.points[1].errorY = 0.5;
+  await harness.message(message);
+  assert.equal(harness.plot.data[0].mode, "lines+markers");
+  assert.deepEqual(Array.from(harness.plot.data[0].error_y.array), [0.25, 0.5]);
+  assert.equal(harness.plot.data[0].error_y.type, "data");
+});
+
+test("user research labels are rendered as text rather than plot markup", async () => {
+  const harness = createHarness();
+  const message = twoDimensionalMessage(1);
+  message.payload.spec.title = "<a href='https://example.invalid'>title</a>";
+  message.payload.spec.x.label = "X <sup>2</sup>";
+  message.payload.spec.series[0].label = "A & B";
+  await harness.message(message);
+  assert.equal(harness.plotly.lastLayout.title.text.startsWith("&lt;a"), true);
+  assert.equal(harness.plotly.lastLayout.xaxis.title.text, "X &lt;sup&gt;2&lt;/sup&gt;");
+  assert.equal(harness.plot.data[0].name, "A &amp; B");
 });

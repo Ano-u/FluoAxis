@@ -38,6 +38,7 @@ public sealed record CalculationTrace
 
     /// <summary>Structured error codes raised while computing this well, if any.</summary>
     public IReadOnlyList<string> ErrorCodes { get; }
+    public IReadOnlyList<ChannelEndpoint> SourcePoints { get; }
 
     public CalculationTrace(
         Guid traceId,
@@ -51,7 +52,8 @@ public sealed record CalculationTrace
         double thresholdRaw,
         double? resultRaw,
         QcStatus finalStatus,
-        IReadOnlyList<string> errorCodes)
+        IReadOnlyList<string> errorCodes,
+        IReadOnlyList<ChannelEndpoint>? sourcePoints = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(algorithm);
         ArgumentException.ThrowIfNullOrWhiteSpace(comparisonOperator);
@@ -62,12 +64,13 @@ public sealed record CalculationTrace
         SourceWell = sourceWell;
         SourceChannel = sourceChannel;
         SourcePointIndex = sourcePointIndex;
-        IntermediateValues = intermediateValues;
+        IntermediateValues = Array.AsReadOnly(intermediateValues.ToArray());
         ComparisonOperator = comparisonOperator;
         ThresholdRaw = thresholdRaw;
         ResultRaw = resultRaw;
         FinalStatus = finalStatus;
-        ErrorCodes = errorCodes;
+        ErrorCodes = Array.AsReadOnly(errorCodes.ToArray());
+        SourcePoints = Array.AsReadOnly((sourcePoints ?? []).ToArray());
     }
 
     /// <summary>Looks up an intermediate value by its method-order key (e.g. "Y_FAM").</summary>

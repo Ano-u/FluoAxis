@@ -16,7 +16,7 @@ public sealed class ManagedSignalPreparationAdapterTests
         string root = Path.Combine(FindRepositoryRoot(), "artifacts", "test-tmp", nameof(ManagedSignalPreparationAdapterTests), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, "data", "raw"));
         string path = Path.Combine(root, "data", "raw", "run.csv");
-        byte[] bytes = Encoding.UTF8.GetBytes("Time,A1\r\n0,1\r\n2,2\r\n");
+        byte[] bytes = Encoding.UTF8.GetBytes("Time,A1,A1_ROX\r\n0,1,10\r\n2,2,20\r\n");
         File.WriteAllBytes(path, bytes);
 
         try
@@ -53,7 +53,7 @@ public sealed class ManagedSignalPreparationAdapterTests
             new Dictionary<int, WellId> { [1] = WellId.Parse("A1") });
         var rox = new PreparedChannelRegion(
             FluorescenceChannel.Rox, "text-body", 0, 0,
-            new Dictionary<int, WellId> { [1] = WellId.Parse("A1") });
+            new Dictionary<int, WellId> { [2] = WellId.Parse("A1") });
         return new PreparedDataMapping(runId, fam, rox);
     }
 

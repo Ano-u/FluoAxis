@@ -14,6 +14,11 @@ public sealed record WellAssignment
 
     public WellAssignment(WellId well, WellRole role, SampleAssignment? sample)
     {
+        if (role == WellRole.Sample && sample is null)
+        {
+            throw new ArgumentException("Sample wells require sample metadata.", nameof(sample));
+        }
+
         if (role != WellRole.Sample && sample is not null)
         {
             throw new ArgumentException($"Only {nameof(WellRole.Sample)} wells may carry sample metadata; role '{role}' must have a null sample.", nameof(sample));

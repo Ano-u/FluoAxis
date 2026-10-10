@@ -1,5 +1,7 @@
 # FluoAxis 项目实施总计划
 
+> 当前实施状态以 `docs/design/Requirements-Acceptance-Matrix-V1.1.md` 和 `docs/feature/FT-20261007-007-engineering-workflow-completion.md` 为准。下文的绿地仓库、初始工具链和 18 周排期是 2026-08-10 立项基线，保留用于历史追溯，不能作为当前 checkout 的完成度结论。用户已明确保留 Method/Data Contract 草案并先完成工程设计和验证。
+
 ---
 
 | 项目 | 内容 |

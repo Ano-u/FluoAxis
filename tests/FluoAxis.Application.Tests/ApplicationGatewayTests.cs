@@ -11,6 +11,15 @@ public sealed class ApplicationGatewayTests
     private const string ValidSha256 = "a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff00";
 
     [Fact]
+    public void Explicit_engine_constructor_rejects_null_engine()
+    {
+        ArgumentNullException error = Assert.Throws<ArgumentNullException>(() =>
+            new ApplicationGateway(new InMemoryProjectRunRepository(), null, null, null, null!));
+
+        Assert.Equal("engine", error.ParamName);
+    }
+
+    [Fact]
     public async Task CreateProject_CreatesNewRunWithBackendDerivedSnapshot()
     {
         var gateway = CreateGateway();
@@ -329,6 +338,9 @@ public sealed class ApplicationGatewayTests
             RunWorkflowPayload payload,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public ValueTask<StoredRunMutation?> GetMutationAsync(Guid requestId, CancellationToken cancellationToken) =>
+            ValueTask.FromResult<StoredRunMutation?>(null);
 
         public ValueTask<PreparedSourceIdentity?> GetSourceAsync(Guid runId, CancellationToken cancellationToken) =>
             ValueTask.FromResult<PreparedSourceIdentity?>(null);

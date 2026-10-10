@@ -20,6 +20,24 @@ public class BrafAnalysisEngineTests
 
     private static readonly BrafMethodSnapshot Method = BrafMethodSnapshot.Default;
 
+    [Fact]
+    public void Control_evaluation_returns_structured_failure_when_finite_wt_values_overflow_the_mean()
+    {
+        var calibration = new CalibrationResult(
+            [], [],
+            new Dictionary<FluorescenceChannel, double> { [FluorescenceChannel.Fam] = 1, [FluorescenceChannel.Rox] = 1 },
+            new Dictionary<FluorescenceChannel, double> { [FluorescenceChannel.Fam] = 0, [FluorescenceChannel.Rox] = 0 },
+            QcStatus.Pass, []);
+        var input = new ControlQcInput(
+            [TestWells.Flat("C1", double.MaxValue, 0), TestWells.Flat("C2", double.MaxValue, 0)],
+            [TestWells.Flat("D1", 1, 0)]);
+
+        Result<ControlQcResult> result = Engine.EvaluateControls(input, calibration, Method);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodes.CalibrationNonFiniteValue, Assert.Single(result.Errors).Code);
+    }
+
     // ---------------------------------------------------------------
     // Full pass chain
     // ---------------------------------------------------------------
@@ -156,6 +174,72 @@ public class BrafAnalysisEngineTests
         // Per-well calls still exist so the UI can show the disagreement.
         Assert.Equal(DrPrimeCall.Negative, sample.Wells[0].Call);
         Assert.Equal(DrPrimeCall.Positive, sample.Wells[1].Call);
+    }
+
+    [Fact]
+    public void Legacy_false_consistency_flag_does_not_disable_mixed_sample_or_lqc_invalidity()
+    {
+        BrafMethodSnapshot legacyMethod = Method with
+        {
+            Replicates = new ReplicateSpec(requireClassificationConsistency: false),
+        };
+        var (calibration, controls) = ReferenceStages();
+        SampleAnalysisInput samples = new([new SampleGroup("S1", [TestWells.AtDrPrime("E1", 0.35), TestWells.AtDrPrime("E2", 0.45)])]);
+        ControlQcInput controlInput = new([TestWells.Wt("C1")], [TestWells.AtDrPrime("D1", 0.35), TestWells.AtDrPrime("D2", 0.45)]);
+
+        Result<SampleAnalysisResult> result = Engine.AnalyzeSamples(samples, controls.WtReference!, calibration, legacyMethod);
+        Result<ControlQcResult> controlResult = Engine.EvaluateControls(controlInput, calibration, legacyMethod);
+
+        Assert.True(result.IsSuccess);
+        SampleResult sample = Assert.Single(result.Value!.Results);
+        Assert.Equal(QcStatus.Invalid, sample.Status);
+        Assert.Null(sample.Call);
+        Assert.Null(sample.MeanDrPrime);
+        Assert.Equal(ErrorCodes.SampleReplicateClassificationInconsistent, sample.ErrorCode);
+        Assert.True(controlResult.IsSuccess);
+        Assert.Equal(QcStatus.Invalid, controlResult.Value!.QcStatus);
+        Assert.Null(controlResult.Value.LqcDirection);
+        Assert.Null(controlResult.Value.LqcMeanDrPrime);
+    }
+
+    [Fact]
+    public void Legacy_zero_role_minima_still_fail_closed_for_each_missing_required_role()
+    {
+        BrafMethodSnapshot legacyMethod = Method with { Roles = new RoleCardinalitySpec(0, 0, 0, 0) };
+        var (calibration, _) = ReferenceStages();
+        Result<CalibrationResult> noNtc = Engine.Calibrate(new CalibrationInput([TestWells.Positive100("B1")], []), legacyMethod);
+        Result<CalibrationResult> noPositive = Engine.Calibrate(new CalibrationInput([], [TestWells.Ntc("A1")]), legacyMethod);
+        Result<ControlQcResult> noWt = Engine.EvaluateControls(new ControlQcInput([], [TestWells.AtDrPrime("D1", 0.6)]), calibration, legacyMethod);
+        Result<ControlQcResult> noLqc = Engine.EvaluateControls(new ControlQcInput([TestWells.Wt("C1")], []), calibration, legacyMethod);
+
+        Assert.False(noNtc.IsSuccess);
+        Assert.False(noPositive.IsSuccess);
+        Assert.False(noWt.IsSuccess);
+        Assert.False(noLqc.IsSuccess);
+        Assert.Equal(ErrorCodes.PlateRoleCardinality, Assert.Single(noNtc.Errors).Code);
+        Assert.Equal(ErrorCodes.PlateRoleCardinality, Assert.Single(noPositive.Errors).Code);
+        Assert.Equal(ErrorCodes.PlateRoleCardinality, Assert.Single(noWt.Errors).Code);
+        Assert.Equal(ErrorCodes.PlateRoleCardinality, Assert.Single(noLqc.Errors).Code);
+    }
+
+    [Fact]
+    public void Configured_role_minima_above_one_are_honored()
+    {
+        BrafMethodSnapshot method = Method with { Roles = new RoleCardinalitySpec(2, 2, 2, 2) };
+        var (calibration, _) = ReferenceStages();
+        Result<CalibrationResult> tooFewNtc = Engine.Calibrate(
+            new CalibrationInput([TestWells.Positive100("B1"), TestWells.Positive100("B2")], [TestWells.Ntc("A1")]), method);
+        Result<CalibrationResult> tooFewPositive = Engine.Calibrate(
+            new CalibrationInput([TestWells.Positive100("B1")], [TestWells.Ntc("A1"), TestWells.Ntc("A2")]), method);
+        Result<ControlQcResult> tooFewWt = Engine.EvaluateControls(
+            new ControlQcInput([TestWells.Wt("C1")], [TestWells.AtDrPrime("D1", 0.6), TestWells.AtDrPrime("D2", 0.6)]), calibration, method);
+        Result<ControlQcResult> tooFewLqc = Engine.EvaluateControls(
+            new ControlQcInput([TestWells.Wt("C1"), TestWells.Wt("C2")], [TestWells.AtDrPrime("D1", 0.6)]), calibration, method);
+
+        Assert.Equal(ErrorCodes.PlateRoleCardinality, Assert.Single(tooFewNtc.Errors).Code);
+        Assert.Equal(ErrorCodes.PlateRoleCardinality, Assert.Single(tooFewPositive.Errors).Code);
+        Assert.Equal(ErrorCodes.PlateRoleCardinality, Assert.Single(tooFewWt.Errors).Code);
+        Assert.Equal(ErrorCodes.PlateRoleCardinality, Assert.Single(tooFewLqc.Errors).Code);
     }
 
     // ---------------------------------------------------------------
@@ -306,6 +390,38 @@ public class BrafAnalysisEngineTests
         Assert.True(result.IsSuccess);
         Assert.Equal(QcStatus.Fail, result.Value!.QcStatus);
         Assert.Equal(ErrorCodes.ControlLqcDirectionNegative, result.Value.Diagnostics.Single().Code);
+        Assert.Equal(DrPrimeCall.Negative, result.Value.LqcDirection);
+        Assert.Equal(0.2, result.Value.LqcMeanDrPrime!.Value, 12);
+    }
+
+    [Theory]
+    [InlineData(0.2, 0.3, 0.25, QcStatus.Fail, DrPrimeCall.Negative)]
+    [InlineData(0.5, 0.9, 0.7, QcStatus.Pass, DrPrimeCall.Positive)]
+    public void Lqc_consistent_replicates_report_the_engine_mean_independent_of_expected_direction(
+        double first, double second, double expectedMean, QcStatus expectedStatus, DrPrimeCall expectedDirection)
+    {
+        ControlQcInput input = new([TestWells.Wt("C1")], [TestWells.AtDrPrime("D1", first), TestWells.AtDrPrime("D2", second)]);
+        var (calibration, _) = ReferenceStages();
+
+        Result<ControlQcResult> result = Engine.EvaluateControls(input, calibration, Method);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expectedStatus, result.Value!.QcStatus);
+        Assert.Equal(expectedDirection, result.Value.LqcDirection);
+        Assert.Equal(expectedMean, result.Value.LqcMeanDrPrime!.Value, 12);
+    }
+
+    [Fact]
+    public void Lqc_missing_endpoint_returns_no_group_result_or_mean()
+    {
+        ControlQcInput input = new([TestWells.Wt("C1")], [TestWells.Well("D1", [100, 640], [50, 50], [0, 90])]);
+        var (calibration, _) = ReferenceStages();
+
+        Result<ControlQcResult> result = Engine.EvaluateControls(input, calibration, Method);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Value);
+        Assert.Equal(ErrorCodes.CalibrationMissingEndpoint, Assert.Single(result.Errors).Code);
     }
 
     [Fact]
@@ -319,6 +435,8 @@ public class BrafAnalysisEngineTests
         Assert.True(result.IsSuccess);
         Assert.Equal(QcStatus.Invalid, result.Value!.QcStatus);
         Assert.Equal(AnalysisErrorCodes.ControlLqcReplicateInconsistent, result.Value.Diagnostics.Single().Code);
+        Assert.Null(result.Value.LqcDirection);
+        Assert.Null(result.Value.LqcMeanDrPrime);
     }
 
     [Fact]

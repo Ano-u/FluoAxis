@@ -154,17 +154,63 @@ public static class AnalysisMath
         ArgumentNullException.ThrowIfNull(points);
         ArgumentNullException.ThrowIfNull(method);
 
-        TimeSpan endpoint = TimeSpan.FromMinutes(method.EndpointMinutes);
-        TimeSpan tolerance = TimeSpan.FromSeconds(method.EndpointToleranceSeconds);
+        // Keep conversion defensive because malformed snapshots can still
+        // reach this pure primitive through deserialization or tests.
+        TimeSpan endpoint;
+        TimeSpan tolerance;
+        if (!double.IsFinite(method.EndpointMinutes)
+            || method.EndpointMinutes <= 0
+            || !double.IsFinite(method.EndpointToleranceSeconds)
+            || method.EndpointToleranceSeconds < 0)
+        {
+            return new EndpointSelection(
+                isFound: false,
+                point: null,
+                pointIndex: null,
+                error: new AppError(
+                    ErrorCodes.CalibrationMissingEndpoint,
+                    ErrorSeverity.Blocking,
+                    "The method endpoint or tolerance is invalid."));
+        }
+
+        try
+        {
+            endpoint = TimeSpan.FromMinutes(method.EndpointMinutes);
+            tolerance = TimeSpan.FromSeconds(method.EndpointToleranceSeconds);
+        }
+        catch (ArgumentException)
+        {
+            return new EndpointSelection(
+                isFound: false,
+                point: null,
+                pointIndex: null,
+                error: new AppError(
+                    ErrorCodes.CalibrationMissingEndpoint,
+                    ErrorSeverity.Blocking,
+                    "The method endpoint or tolerance cannot be represented on the elapsed-time axis."));
+        }
+        catch (OverflowException)
+        {
+            return new EndpointSelection(
+                isFound: false,
+                point: null,
+                pointIndex: null,
+                error: new AppError(
+                    ErrorCodes.CalibrationMissingEndpoint,
+                    ErrorSeverity.Blocking,
+                    "The method endpoint or tolerance cannot be represented on the elapsed-time axis."));
+        }
 
         int bestIndex = -1;
         SignalPoint best = default;
-        long bestDistanceTicks = long.MaxValue;
+        ulong bestDistanceTicks = ulong.MaxValue;
 
         for (int i = 0; i < points.Count; i++)
         {
-            long distanceTicks = Math.Abs(points[i].Elapsed.Ticks - endpoint.Ticks);
-            if (distanceTicks <= tolerance.Ticks
+            // Subtraction can overflow before Math.Abs sees the value. Use an
+            // unsigned magnitude so the full TimeSpan range is safe.
+            ulong distanceTicks = TickDistance(points[i].Elapsed.Ticks, endpoint.Ticks);
+            if (distanceTicks <= (ulong)tolerance.Ticks
                 && (distanceTicks < bestDistanceTicks
                     || (distanceTicks == bestDistanceTicks && points[i].Elapsed > best.Elapsed)))
             {
@@ -187,6 +233,22 @@ public static class AnalysisMath
         }
 
         return new EndpointSelection(isFound: true, point: best, pointIndex: bestIndex, error: null);
+    }
+
+    private static ulong TickDistance(long left, long right)
+    {
+        if ((left < 0) == (right < 0))
+        {
+            // Same sign means the subtraction cannot exceed long.MaxValue.
+            return (ulong)Math.Abs(left - right);
+        }
+
+        // Opposite signs can exceed long.MaxValue; add magnitudes in ulong.
+        static ulong Magnitude(long value) => value < 0
+            ? unchecked((ulong)(-(value + 1))) + 1UL
+            : (ulong)value;
+
+        return Magnitude(left) + Magnitude(right);
     }
 
     /// <summary>

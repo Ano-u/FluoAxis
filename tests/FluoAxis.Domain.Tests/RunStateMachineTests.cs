@@ -83,6 +83,27 @@ public class RunStateMachineTests
         }
     }
 
+    [Fact]
+    public void Public_stage_path_includes_intermediate_lifecycle_states()
+    {
+        Assert.Equal(
+            [RunState.Mapped, RunState.Calibrating, RunState.CalibrationPassed],
+            RunStateMachine.FindPath(RunState.Mapped, RunState.CalibrationPassed));
+        Assert.Equal(
+            [RunState.ReadyForAnalysis, RunState.Analyzing, RunState.ReplicateConflict, RunState.RunInvalid],
+            RunStateMachine.FindPath(RunState.ReadyForAnalysis, RunState.RunInvalid));
+    }
+
+    [Fact]
+    public void Invalid_or_skipped_paths_are_rejected()
+    {
+        Assert.Null(RunStateMachine.FindPath(RunState.Exported, RunState.New));
+        Assert.False(RunStateMachine.IsValidPath(
+            [RunState.Mapped, RunState.CalibrationPassed],
+            RunState.Mapped,
+            RunState.CalibrationPassed));
+    }
+
     [Theory]
     [InlineData(RunState.New, RunState.Analyzed)]
     [InlineData(RunState.Imported, RunState.Calibrating)]

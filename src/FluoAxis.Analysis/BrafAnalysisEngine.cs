@@ -34,6 +34,9 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(method);
 
+        AppError? identityError = ValidateWellIdentity(input.Positive100Wells.Concat(input.NtcWells));
+        if (identityError is not null) return Result<CalibrationResult>.Fail(identityError);
+
         AppError? cardinality = CheckCalibrationCardinality(input, method);
         if (cardinality is not null)
         {
@@ -100,7 +103,11 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
                     Collect(fmContributions, channel, fm.Value);
                 }
 
-                positiveResults.Add(new PositiveWellResult(well.Well, channel, plateau, fm, positiveEndpointIndices[(int)channel][well.Well]));
+                int endpointIndex = positiveEndpointIndices[(int)channel][well.Well];
+                int windowStart = 0;
+                while (series.Points[windowStart].Elapsed != window[0].Elapsed) windowStart++;
+                positiveResults.Add(new PositiveWellResult(well.Well, channel, plateau, fm, endpointIndex,
+                    series.Points[endpointIndex], [.. window.Select((point, index) => new EvaluatedPoint(windowStart + index, point))]));
             }
         }
 
@@ -160,6 +167,11 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
                 double fmRun = runFm[channel];
                 List<NtcPointDiagnostic> outOfBand = [];
                 bool wellFailed = false;
+                List<EvaluatedPoint> evaluated = new(course.Count);
+                double minimumY = double.PositiveInfinity;
+                double maximumY = double.NegativeInfinity;
+                int courseStart = 0;
+                while (courseStart < series.Points.Count && series.Points[courseStart].Elapsed < TimeSpan.Zero) courseStart++;
 
                 for (int i = 0; i < course.Count; i++)
                 {
@@ -184,11 +196,16 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
                             $"The normalized value of point {i} is not finite."));
                     }
 
-                    if (y < method.Ntc.NormalizedMin || y > method.Ntc.NormalizedMax)
+                    bool pointFailed = y < method.Ntc.NormalizedMin || y > method.Ntc.NormalizedMax;
+                    evaluated.Add(new EvaluatedPoint(courseStart + i, course[i], y, !pointFailed));
+                    minimumY = Math.Min(minimumY, y);
+                    maximumY = Math.Max(maximumY, y);
+
+                    if (pointFailed)
                     {
                         wellFailed = true;
                         outOfBand.Add(new NtcPointDiagnostic(
-                            i,
+                            courseStart + i,
                             course[i].Elapsed.TotalMinutes,
                             y,
                             method.Ntc.NormalizedMin,
@@ -211,7 +228,9 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
                     Collect(fbContributions, channel, fb);
                 }
 
-                ntcResults.Add(new NtcWellResult(well.Well, channel, fb, ntcEndpointIndices[(int)channel][well.Well], course.Count, outOfBand));
+                int endpointIndex = ntcEndpointIndices[(int)channel][well.Well];
+                ntcResults.Add(new NtcWellResult(well.Well, channel, fb, endpointIndex, course.Count, outOfBand,
+                    series.Points[endpointIndex], evaluated, minimumY, maximumY, fmRun - fb));
             }
         }
 
@@ -251,6 +270,9 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(calibration);
         ArgumentNullException.ThrowIfNull(method);
+
+        AppError? identityError = ValidateWellIdentity(input.WtWells.Concat(input.LqcWells));
+        if (identityError is not null) return Result<ControlQcResult>.Fail(identityError);
 
         if (calibration.QcStatus != QcStatus.Pass)
         {
@@ -297,11 +319,22 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
 
             wtFam.Add(fam.Y!.Value);
             wtRox.Add(rox.Y!.Value);
-            wtResults.Add(new WellEndpointY(well.Well, fam.Y, rox.Y, fam.PointIndex, rox.PointIndex));
+            wtResults.Add(new WellEndpointY(well.Well, fam.Y, rox.Y, fam.PointIndex, rox.PointIndex,
+                well.Channels[FluorescenceChannel.Fam].Points[fam.PointIndex!.Value],
+                well.Channels[FluorescenceChannel.Rox].Points[rox.PointIndex!.Value]));
         }
 
-        double meanYFamWt = AnalysisMath.Mean(CollectionsMarshal.AsSpan(wtFam))!.Value;
-        double meanYRoxWt = AnalysisMath.Mean(CollectionsMarshal.AsSpan(wtRox))!.Value;
+        double? meanYFamWtMaybe = AnalysisMath.Mean(CollectionsMarshal.AsSpan(wtFam));
+        double? meanYRoxWtMaybe = AnalysisMath.Mean(CollectionsMarshal.AsSpan(wtRox));
+        if (meanYFamWtMaybe is null || meanYRoxWtMaybe is null)
+        {
+            return Result<ControlQcResult>.Fail(StageError(
+                ErrorCodes.CalibrationNonFiniteValue,
+                "The WT group mean is not finite; control evaluation failed closed."));
+        }
+
+        double meanYFamWt = meanYFamWtMaybe.Value;
+        double meanYRoxWt = meanYRoxWtMaybe.Value;
 
         if (meanYFamWt >= method.Wt.FamMeanMaxExclusive || meanYRoxWt >= method.Wt.RoxMeanMaxExclusive)
         {
@@ -320,7 +353,7 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
                 lqcResults,
                 wtReference: null,
                 qcStatus: QcStatus.Fail,
-                diagnostics));
+                diagnostics, evaluatedWtReference: new WtReference(meanYFamWt, meanYRoxWt)));
         }
 
         WtReference wtReference = new(meanYFamWt, meanYRoxWt);
@@ -338,6 +371,15 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
         }
 
         EvaluateReplicateDirection(lqcResults, out DrPrimeCall? direction, out bool mixed);
+        double? lqcMean = null;
+        if (!mixed)
+        {
+            lqcMean = AnalysisMath.Mean([.. lqcResults.Select(well => well.DrPrime!.Value)]);
+            if (lqcMean is null)
+                return Result<ControlQcResult>.Fail(StageError(
+                    ErrorCodes.CalibrationNonFiniteValue,
+                    "The LQC replicate dr' mean is not finite; control evaluation failed closed."));
+        }
 
         if (mixed)
         {
@@ -368,7 +410,8 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
             wtReference,
             controlStatus,
             diagnostics,
-            lqcDirection: direction));
+            lqcDirection: direction,
+            lqcMeanDrPrime: lqcMean));
     }
 
     /// <summary>Stage 3: per-sample dr' classification with replicate consistency.</summary>
@@ -382,6 +425,11 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
         ArgumentNullException.ThrowIfNull(wtReference);
         ArgumentNullException.ThrowIfNull(calibration);
         ArgumentNullException.ThrowIfNull(method);
+
+        AppError? identityError = ValidateWellIdentity(input.Samples.SelectMany(group => group.Wells));
+        if (identityError is not null) return Result<SampleAnalysisResult>.Fail(identityError);
+        if (input.Samples.Select(group => group.SampleId).Distinct(StringComparer.Ordinal).Count() != input.Samples.Count)
+            return Result<SampleAnalysisResult>.Fail(StageError(ErrorCodes.PlateRoleCardinality, "Sample groups must have distinct identities."));
 
         if (calibration.QcStatus != QcStatus.Pass)
         {
@@ -445,23 +493,47 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
 
             double[] drPrimes = [.. wells.Select(w => w.DrPrime!.Value)];
             double? mean = AnalysisMath.Mean(drPrimes);
+            if (mean is null)
+            {
+                return Result<SampleAnalysisResult>.Fail(StageError(
+                    ErrorCodes.CalibrationNonFiniteValue,
+                    $"Sample {group.SampleId}: the replicate dr' mean is not finite; analysis failed closed."));
+            }
 
-            results.Add(new SampleResult(group.SampleId, QcStatus.Pass, call, mean, wells, errorCode: null, direction: direction));
+            results.Add(new SampleResult(group.SampleId, QcStatus.Pass, call, mean.Value, wells, errorCode: null, direction: direction));
         }
 
         return Result<SampleAnalysisResult>.Ok(new SampleAnalysisResult(results));
     }
 
+    private static AppError? ValidateWellIdentity(IEnumerable<WellSignals> wells)
+    {
+        Guid? runId = null;
+        HashSet<WellId> seen = [];
+        foreach (WellSignals well in wells)
+        {
+            Guid current = well.Channels[FluorescenceChannel.Fam].RunId;
+            if (!seen.Add(well.Well) || (runId is { } expected && current != expected))
+                return StageError(ErrorCodes.PlateRoleCardinality, "Analysis input contains a duplicate well or mixes different Runs.");
+            runId = current;
+        }
+        return null;
+    }
+
     private static AppError? CheckCalibrationCardinality(CalibrationInput input, BrafMethodSnapshot method)
     {
-        if (input.NtcWells.Count < method.Roles.NtcMinimumWells)
+        // Legacy Methods may contain zero, but required control roles can
+        // never be omitted or reach a later stage as an empty collection.
+        int ntcMinimum = Math.Max(1, method.Roles.NtcMinimumWells);
+        int positiveMinimum = Math.Max(1, method.Roles.Positive100MinimumWells);
+        if (input.NtcWells.Count < ntcMinimum)
         {
-            return CardinalityError("NTC", input.NtcWells.Count, method.Roles.NtcMinimumWells);
+            return CardinalityError("NTC", input.NtcWells.Count, ntcMinimum);
         }
 
-        if (input.Positive100Wells.Count < method.Roles.Positive100MinimumWells)
+        if (input.Positive100Wells.Count < positiveMinimum)
         {
-            return CardinalityError("100% positive", input.Positive100Wells.Count, method.Roles.Positive100MinimumWells);
+            return CardinalityError("100% positive", input.Positive100Wells.Count, positiveMinimum);
         }
 
         return null;
@@ -469,14 +541,16 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
 
     private static AppError? CheckControlCardinality(ControlQcInput input, BrafMethodSnapshot method)
     {
-        if (input.WtWells.Count < method.Roles.WildTypeMinimumWells)
+        int wtMinimum = Math.Max(1, method.Roles.WildTypeMinimumWells);
+        int lqcMinimum = Math.Max(1, method.Roles.Lqc01PercentMinimumWells);
+        if (input.WtWells.Count < wtMinimum)
         {
-            return CardinalityError("WT", input.WtWells.Count, method.Roles.WildTypeMinimumWells);
+            return CardinalityError("WT", input.WtWells.Count, wtMinimum);
         }
 
-        if (input.LqcWells.Count < method.Roles.Lqc01PercentMinimumWells)
+        if (input.LqcWells.Count < lqcMinimum)
         {
-            return CardinalityError("LQC", input.LqcWells.Count, method.Roles.Lqc01PercentMinimumWells);
+            return CardinalityError("LQC", input.LqcWells.Count, lqcMinimum);
         }
 
         return null;
@@ -499,7 +573,12 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
     {
         foreach (FluorescenceChannel channel in Channels)
         {
-            double denominator = calibration.RunFm[channel] - calibration.RunFb[channel];
+            if (!calibration.RunFm.TryGetValue(channel, out double fm) || !calibration.RunFb.TryGetValue(channel, out double fb))
+            {
+                return StageError(ErrorCodes.CalibrationInvalidDenominator,
+                    $"Channel {channel}: the calibration does not contain both Fm and Fb.");
+            }
+            double denominator = fm - fb;
             if (!double.IsFinite(denominator) || denominator <= 0)
             {
                 return StageError(
@@ -619,7 +698,12 @@ public sealed class BrafAnalysisEngine : IAnalysisEngine
             thresholdRaw: method.Classification.DrPrimeThresholdInclusive,
             resultRaw: drPrime,
             finalStatus: QcStatus.Pass,
-            errorCodes: []);
+            errorCodes: [],
+            sourcePoints:
+            [
+                new(FluorescenceChannel.Fam, fam.PointIndex!.Value, well.Channels[FluorescenceChannel.Fam].Points[fam.PointIndex.Value]),
+                new(FluorescenceChannel.Rox, rox.PointIndex!.Value, well.Channels[FluorescenceChannel.Rox].Points[rox.PointIndex.Value]),
+            ]);
 
         error = null;
         return new WellDrPrimeResult(well.Well, drPrime, call, trace);

@@ -16,6 +16,7 @@
     <ProjectReference Include="..\..\src\FluoAxis.Domain\FluoAxis.Domain.csproj" />
     <ProjectReference Include="..\..\src\FluoAxis.Import\FluoAxis.Import.csproj" />
     <ProjectReference Include="..\..\src\FluoAxis.Infrastructure\FluoAxis.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\FluoAxis.Presentation\FluoAxis.Presentation.csproj" />
   </ItemGroup>
 
 </Project>

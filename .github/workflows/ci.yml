@@ -40,9 +40,21 @@ jobs:
       - name: Build
         run: dotnet build FluoAxis.slnx --no-restore
 
+      - name: Verify executable DPI awareness
+        shell: pwsh
+        run: ./build/Verify-WindowsDpi.ps1 -Executable 'src/FluoAxis.App/bin/Debug/net10.0-windows10.0.22621.0/win-x64/FluoAxis.App.exe'
+
+      - name: Publish and verify WinUI runtime assets
+        shell: pwsh
+        run: |
+          dotnet publish src/FluoAxis.App/FluoAxis.App.csproj -c Release --no-restore -o artifacts/ci/publish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./build/Verify-PublishedAssets.ps1 -PublishDirectory artifacts/ci/publish
+          ./build/Verify-WindowsDpi.ps1 -Executable artifacts/ci/publish/FluoAxis.App.exe
+
       - name: Test local PlotHost
         run: node --test web/FluoAxis.PlotHost/plot-host.test.js
 
       - name: Test with fail-closed discovery
         shell: pwsh
-        run: dotnet test --test-modules '**/bin/Debug/net10.0*/**/*Tests.dll' --root-directory . --minimum-expected-tests 603
+        run: dotnet test --test-modules '**/bin/Debug/net10.0*/**/*Tests.dll' --root-directory . --minimum-expected-tests 981

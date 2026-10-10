@@ -18,7 +18,7 @@ public sealed class SqlitePersistenceTests
 
         await SqliteSchema.InitializeAsync(connection, CancellationToken.None);
 
-        Assert.Equal(2L, await ScalarAsync(connection, "PRAGMA user_version;"));
+        Assert.Equal((long)SqliteSchema.CurrentVersion, await ScalarAsync(connection, "PRAGMA user_version;"));
         Assert.Equal(1L, await ScalarAsync(connection, "PRAGMA foreign_keys;"));
         Assert.Equal(5L, await ScalarAsync(connection, "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('method_snapshot','project','run_record','create_request','audit_event');"));
 
@@ -38,7 +38,7 @@ public sealed class SqlitePersistenceTests
         await SqliteSchema.InitializeAsync(connection, CancellationToken.None);
         await SqliteSchema.InitializeAsync(connection, CancellationToken.None);
 
-        Assert.Equal(2L, await ScalarAsync(connection, "PRAGMA user_version;"));
+        Assert.Equal((long)SqliteSchema.CurrentVersion, await ScalarAsync(connection, "PRAGMA user_version;"));
     }
 
     [Fact]
@@ -74,6 +74,29 @@ public sealed class SqlitePersistenceTests
         Assert.NotNull(actual);
         Assert.Equal(expected, actual);
         Assert.Equal(expected.Method.ComputeCanonicalHash(), actual.Method.ComputeCanonicalHash());
+    }
+
+    [Fact]
+    public async Task RepositoryPreservesLegacyZeroRoleMinimaAndConsistencyFlag()
+    {
+        await using var database = new SharedMemoryDatabase();
+        await using var repository = new SqliteProjectRunRepository(database.CreateConnection);
+        CreateProjectIdentity identity = Identity(Guid.NewGuid());
+        ProjectRunAggregate expected = Aggregate(new BrafMethodSnapshot(
+            replicates: new ReplicateSpec(false), roles: new RoleCardinalitySpec(0, 0, 0, 0)));
+        string originalHash = expected.Method.ComputeCanonicalHash();
+
+        await repository.CreateOrReplayAsync(identity, () => expected, TestContext.Current.CancellationToken);
+        ProjectRunAggregate? actual = await repository.GetByRunIdAsync(expected.RunId, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(actual);
+        Assert.Equal(expected.Method, actual.Method);
+        Assert.False(actual.Method.Replicates.RequireClassificationConsistency);
+        Assert.Equal(0, actual.Method.Roles.NtcMinimumWells);
+        Assert.Equal(0, actual.Method.Roles.Positive100MinimumWells);
+        Assert.Equal(0, actual.Method.Roles.WildTypeMinimumWells);
+        Assert.Equal(0, actual.Method.Roles.Lqc01PercentMinimumWells);
+        Assert.Equal(originalHash, actual.Method.ComputeCanonicalHash());
     }
 
     [Fact]

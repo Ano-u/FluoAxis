@@ -57,7 +57,12 @@ public interface IProjectRunRepository : IRunWorkflowReader
         RunMutationRequest request,
         RunWorkflowPayload payload,
         CancellationToken cancellationToken);
+
+    ValueTask<StoredRunMutation?> GetMutationAsync(Guid requestId, CancellationToken cancellationToken);
 }
+
+/// <summary>Previously committed workflow command identity and its terminal outcome.</summary>
+public sealed record StoredRunMutation(RunMutationRequest Request, RunMutationOutcome Outcome);
 
 /// <summary>
 /// Concurrency-safe development/test adapter for the project repository
@@ -129,7 +134,7 @@ public sealed class InMemoryProjectRunRepository : IProjectRunRepository
             // second increment; a reused id with different data is a conflict.
             if (mutations.TryGetValue(request.RequestId, out var recorded))
             {
-                if (recorded.Request != request)
+                if (!recorded.Request.Matches(request))
                 {
                     return ValueTask.FromResult(RunMutationOutcome.Refused(RunMutationFailure.RequestConflict));
                 }
@@ -152,7 +157,7 @@ public sealed class InMemoryProjectRunRepository : IProjectRunRepository
                 return ValueTask.FromResult(RunMutationOutcome.Refused(RunMutationFailure.WrongState));
             }
 
-            if (!RunStateMachine.CanTransition(request.ExpectedState, request.TargetState))
+            if (!RunStateMachine.IsValidPath(request.TransitionPath, request.ExpectedState, request.TargetState))
             {
                 return ValueTask.FromResult(RunMutationOutcome.Refused(RunMutationFailure.IllegalTransition));
             }
@@ -169,6 +174,17 @@ public sealed class InMemoryProjectRunRepository : IProjectRunRepository
             var outcome = new RunMutationOutcome(advanced, RunMutationFailure.None, IsReplay: false);
             mutations.Add(request.RequestId, (request, outcome));
             return ValueTask.FromResult(outcome);
+        }
+    }
+
+    public ValueTask<StoredRunMutation?> GetMutationAsync(Guid requestId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (gate)
+        {
+            return ValueTask.FromResult(mutations.TryGetValue(requestId, out var recorded)
+                ? new StoredRunMutation(recorded.Request, recorded.Outcome with { IsReplay = true })
+                : null);
         }
     }
 
@@ -252,6 +268,26 @@ public sealed class InMemoryProjectRunRepository : IProjectRunRepository
         }
     }
 
+    public ValueTask<IReadOnlyList<AnalysisStageEvidenceDto>> GetScientificStagesAsync(Guid runId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (gate) return ValueTask.FromResult(payloads.TryGetValue(runId, out RunWorkflowPayload? payload)
+            ? payload.ScientificStages ?? [] : (IReadOnlyList<AnalysisStageEvidenceDto>)[]);
+    }
+
+    public ValueTask<PersistedScientificPointPage> GetScientificPointsAsync(Guid runId, string stage, string well, string channel,
+        int offset, int pageSize, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (gate)
+        {
+            IEnumerable<PersistedScientificPoint> points = payloads.TryGetValue(runId, out RunWorkflowPayload? payload)
+                ? (payload.ScientificPoints ?? []).Where(point => point.Stage == stage && point.Well == well && point.Channel == channel)
+                : [];
+            return ValueTask.FromResult(new PersistedScientificPointPage(points.Count(), Array.AsReadOnly(points.OrderBy(point => point.PointIndex).Skip(offset).Take(pageSize).ToArray())));
+        }
+    }
+
     /// <summary>
     /// Merges a stage payload over what the run already stored, so each
     /// stage contributes only its own part and never erases an earlier one.
@@ -265,8 +301,26 @@ public sealed class InMemoryProjectRunRepository : IProjectRunRepository
         Calibration = incoming.Calibration ?? existing.Calibration,
         Control = incoming.Control ?? existing.Control,
         Samples = incoming.Samples ?? existing.Samples,
-        Traces = incoming.Traces ?? existing.Traces,
+        Traces = MergeTraces(existing.Traces, incoming.Traces),
+        ScientificStages = incoming.ScientificStages is null ? existing.ScientificStages
+            : Array.AsReadOnly((existing.ScientificStages ?? []).Where(stage => !incoming.ScientificStages.Any(item => item.Stage == stage.Stage)).Concat(incoming.ScientificStages).ToArray()),
+        ScientificPoints = incoming.ScientificPoints is null ? existing.ScientificPoints
+            : Array.AsReadOnly((existing.ScientificPoints ?? []).Concat(incoming.ScientificPoints).ToArray()),
     };
+
+    private static IReadOnlyList<PersistedTrace>? MergeTraces(
+        IReadOnlyList<PersistedTrace>? existing,
+        IReadOnlyList<PersistedTrace>? incoming)
+    {
+        if (incoming is null) return existing;
+
+        // Match SQLite's per-TraceId upsert. A later sample stage adds its own
+        // evidence without deleting the earlier LQC calculation traces.
+        Dictionary<string, PersistedTrace> byId = new(StringComparer.Ordinal);
+        foreach (PersistedTrace trace in existing ?? []) byId[trace.TraceId] = trace;
+        foreach (PersistedTrace trace in incoming) byId[trace.TraceId] = trace;
+        return Array.AsReadOnly(byId.Values.OrderBy(trace => trace.TraceId, StringComparer.Ordinal).ToArray());
+    }
 }
 
 internal static class RunSnapshotPolicy

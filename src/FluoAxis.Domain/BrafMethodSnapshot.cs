@@ -65,9 +65,37 @@ public sealed record BrafMethodSnapshot
             throw new ArgumentException("EndpointMinutes must be finite and positive.", nameof(EndpointMinutes));
         }
 
+        if (EndpointMinutes > TimeSpan.MaxValue.TotalMinutes)
+        {
+            throw new ArgumentException("EndpointMinutes exceeds the representable elapsed-time range.", nameof(EndpointMinutes));
+        }
+
+        try
+        {
+            _ = TimeSpan.FromMinutes(EndpointMinutes);
+        }
+        catch (OverflowException)
+        {
+            throw new ArgumentException("EndpointMinutes cannot be represented on the elapsed-time axis.", nameof(EndpointMinutes));
+        }
+
         if (!double.IsFinite(EndpointToleranceSeconds) || EndpointToleranceSeconds < 0)
         {
             throw new ArgumentException("EndpointToleranceSeconds must be finite and non-negative.", nameof(EndpointToleranceSeconds));
+        }
+
+        if (EndpointToleranceSeconds > TimeSpan.MaxValue.TotalSeconds)
+        {
+            throw new ArgumentException("EndpointToleranceSeconds exceeds the representable elapsed-time range.", nameof(EndpointToleranceSeconds));
+        }
+
+        try
+        {
+            _ = TimeSpan.FromSeconds(EndpointToleranceSeconds);
+        }
+        catch (OverflowException)
+        {
+            throw new ArgumentException("EndpointToleranceSeconds cannot be represented on the elapsed-time axis.", nameof(EndpointToleranceSeconds));
         }
 
         if (Plateau.StartMinutes >= Plateau.EndMinutes)
@@ -104,6 +132,22 @@ public sealed record PlateauSpec
         if (!double.IsFinite(startMinutes) || !double.IsFinite(endMinutes))
         {
             throw new ArgumentException("Plateau window bounds must be finite.", nameof(startMinutes));
+        }
+
+        if (startMinutes < TimeSpan.MinValue.TotalMinutes || startMinutes > TimeSpan.MaxValue.TotalMinutes
+            || endMinutes < TimeSpan.MinValue.TotalMinutes || endMinutes > TimeSpan.MaxValue.TotalMinutes)
+        {
+            throw new ArgumentException("Plateau window bounds exceed the representable elapsed-time range.", nameof(startMinutes));
+        }
+
+        try
+        {
+            _ = TimeSpan.FromMinutes(startMinutes);
+            _ = TimeSpan.FromMinutes(endMinutes);
+        }
+        catch (OverflowException)
+        {
+            throw new ArgumentException("Plateau window bounds cannot be represented on the elapsed-time axis.", nameof(startMinutes));
         }
 
         if (startMinutes >= endMinutes)
@@ -200,7 +244,11 @@ public sealed record ClassificationSpec
     public static ClassificationSpec Default { get; } = new();
 }
 
-/// <summary>Replicate direction-consistency policy for LQC and sample groups.</summary>
+/// <summary>
+/// Legacy snapshot field retained verbatim for reading old Methods and
+/// preserving their hashes. Classification consistency is mandatory in the
+/// Analysis engine even when an older snapshot stored false.
+/// </summary>
 public sealed record ReplicateSpec
 {
     public bool RequireClassificationConsistency { get; }
@@ -213,7 +261,11 @@ public sealed record ReplicateSpec
     public static ReplicateSpec Default { get; } = new();
 }
 
-/// <summary>Minimum well counts per required role (fail-closed cardinality).</summary>
+/// <summary>
+/// Stored minimum well counts per required role. Zero remains readable for
+/// legacy snapshots without changing their hashes; Analysis always requires
+/// at least one well of each mandatory role.
+/// </summary>
 public sealed record RoleCardinalitySpec
 {
     public int NtcMinimumWells { get; }

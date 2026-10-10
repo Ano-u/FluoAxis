@@ -7,7 +7,8 @@
 | Package | Purpose | License | Pinned Version | Owner | Upgrade gate |
 |---|---|---|---|---|---|
 | xunit.v3 | 测试框架与 Microsoft.Testing.Platform runner | Apache-2.0 | 4.0.0 | Test Infrastructure | 独立变更；全量构建、测试与发现数量门禁 |
-| DocumentFormat.OpenXml | 无 Excel/COM 的 XLSX 读取 | MIT | 3.5.1 | Import | 独立变更；导入 fixture、畸形输入与资源限制回归 |
+| DocumentFormat.OpenXml | 无 Excel/COM 的 XLSX 读取与快照报告写入 | MIT | 3.5.1 | Import / Reporting | 独立变更；导入 fixture、报告文本/数值、公式注入与资源限制回归 |
+| ExcelDataReader | 只读 BIFF/OLE XLS 导入，不执行宏或公式 | MIT | 3.7.0 | Import | 独立变更；真实 BIFF 字节、错误签名、行列/大小限制和旧文件兼容回归；上游 https://github.com/ExcelDataReader/ExcelDataReader，替代时保留 IImporter 边界 |
 | Microsoft.Data.Sqlite | SQLite 持久化 | MIT | 10.0.11 | Persistence | 独立变更；migration、并发、WAL、移动重开与工程 roundtrip 回归 |
 | Microsoft.WindowsAppSDK | WinUI 3 shell 与自包含 Windows runtime | Microsoft Windows App SDK license | 2.4.0 | App | 独立变更；Debug/Release、启动、DPI、可访问性、可视化和发布回归 |
 | Microsoft.Web.WebView2 | 受控本地 PlotHost adapter | BSD-3-Clause | 1.0.4191.47 | Visualization | 独立变更；origin、navigation、WebMessage、离线、导出和 runtime smoke |
@@ -24,7 +25,6 @@
 | Microsoft.Extensions.Logging.Abstractions | Path-redacted logging abstraction | 10.0.11 | Infrastructure logging slice |
 | Microsoft.Extensions.DependencyInjection.Abstractions | DI abstractions | 10.0.11 | App composition-root slice |
 | CommunityToolkit.Mvvm | Presentation MVVM | 8.4.2 | Presentation spike |
-| ExcelDataReader | Optional legacy XLS adapter | 3.7.0 | Q-PRD-002 approval and real-file evidence |
 | Microsoft.NET.Test.Sdk | Optional IDE test adapter | 18.9.0 | Only if an actual project reference is needed |
 | xunit.runner.visualstudio | Optional Visual Studio adapter | 4.0.0 | Only if an actual project reference is needed |
 | coverlet.collector | Optional coverage collector | 6.0.4 | Coverage evidence design |

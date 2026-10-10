@@ -10,13 +10,14 @@ public sealed class ProjectDependencyTests
     private static readonly IReadOnlyDictionary<string, string[]> AllowedProductionReferences =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
-            ["FluoAxis.App"] = ["FluoAxis.PlotProtocol", "FluoAxis.Presentation", "FluoAxis.Visualization"],
+            ["FluoAxis.App"] = ["FluoAxis.Application", "FluoAxis.Infrastructure", "FluoAxis.Import", "FluoAxis.Persistence", "FluoAxis.Reporting", "FluoAxis.PlotProtocol", "FluoAxis.Presentation", "FluoAxis.Visualization"],
             ["FluoAxis.Domain"] = [],
             ["FluoAxis.Analysis"] = ["FluoAxis.Domain"],
             ["FluoAxis.Contracts"] = ["FluoAxis.Domain"],
             ["FluoAxis.Application"] = ["FluoAxis.Analysis", "FluoAxis.Contracts", "FluoAxis.Domain"],
             ["FluoAxis.Import"] = ["FluoAxis.Domain"],
-            ["FluoAxis.Infrastructure"] = ["FluoAxis.Application", "FluoAxis.Contracts", "FluoAxis.Domain", "FluoAxis.Import"],
+            ["FluoAxis.Infrastructure"] = ["FluoAxis.Application", "FluoAxis.Contracts", "FluoAxis.Domain", "FluoAxis.Import", "FluoAxis.Persistence", "FluoAxis.ProjectFormat", "FluoAxis.Reporting"],
+            ["FluoAxis.Reporting"] = ["FluoAxis.Contracts"],
             ["FluoAxis.Persistence"] = ["FluoAxis.Application", "FluoAxis.Domain"],
             ["FluoAxis.PlotProtocol"] = [],
             ["FluoAxis.Presentation"] = ["FluoAxis.Contracts"],
@@ -235,23 +236,23 @@ public sealed class ProjectDependencyTests
 
         Assert.Equal(0, first.ExitCode);
         Assert.Equal(0, second.ExitCode);
-        Assert.Contains("42 resolved components", first.Output, StringComparison.Ordinal);
+        Assert.Contains("43 resolved components", first.Output, StringComparison.Ordinal);
         Assert.Equal(fixture.ReadBytes("first", "dependencies-and-licenses.json"), fixture.ReadBytes("second", "dependencies-and-licenses.json"));
         Assert.Equal(fixture.ReadBytes("first", "sbom.cyclonedx.json"), fixture.ReadBytes("second", "sbom.cyclonedx.json"));
 
         using JsonDocument inventory = fixture.ReadJson("first", "dependencies-and-licenses.json");
-        Assert.Equal(42, inventory.RootElement.GetProperty("componentCount").GetInt32());
-        Assert.Equal(42, inventory.RootElement.GetProperty("components").GetArrayLength());
-        Assert.Equal(5, inventory.RootElement.GetProperty("components").EnumerateArray().Count(component => component.GetProperty("relationship").GetString() == "direct"));
+        Assert.Equal(43, inventory.RootElement.GetProperty("componentCount").GetInt32());
+        Assert.Equal(43, inventory.RootElement.GetProperty("components").GetArrayLength());
+        Assert.Equal(6, inventory.RootElement.GetProperty("components").EnumerateArray().Count(component => component.GetProperty("relationship").GetString() == "direct"));
 
         using JsonDocument bom = fixture.ReadJson("first", "sbom.cyclonedx.json");
         Assert.Equal("CycloneDX", bom.RootElement.GetProperty("bomFormat").GetString());
         Assert.Equal("1.5", bom.RootElement.GetProperty("specVersion").GetString());
-        Assert.Equal(42, bom.RootElement.GetProperty("components").GetArrayLength());
-        Assert.Equal(43, bom.RootElement.GetProperty("dependencies").GetArrayLength());
+        Assert.Equal(43, bom.RootElement.GetProperty("components").GetArrayLength());
+        Assert.Equal(44, bom.RootElement.GetProperty("dependencies").GetArrayLength());
         JsonElement rootDependency = bom.RootElement.GetProperty("dependencies")[0];
         Assert.Equal("pkg:generic/FluoAxis", rootDependency.GetProperty("ref").GetString());
-        Assert.Equal(5, rootDependency.GetProperty("dependsOn").GetArrayLength());
+        Assert.Equal(6, rootDependency.GetProperty("dependsOn").GetArrayLength());
     }
 
     [Fact]

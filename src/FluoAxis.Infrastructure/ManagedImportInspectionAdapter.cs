@@ -107,6 +107,14 @@ public sealed class ManagedImportInspectionAdapter : IImportInspectionPort
             bool hasZipMagic = await HasZipMagicAsync(stream, cancellationToken).ConfigureAwait(false);
             bool looksLikeText = !hasZipMagic && await LooksLikeTextAsync(stream, cancellationToken).ConfigureAwait(false);
             IImporter? importer = SelectImporter(request, hasZipMagic, looksLikeText);
+            if (Path.GetExtension(request.DisplayName).Equals(".xls", StringComparison.OrdinalIgnoreCase)
+                && Path.GetExtension(request.ResourcePath.FileName).Equals(".xls", StringComparison.OrdinalIgnoreCase))
+                importer = XlsImporter.HasSignature(stream) && request.FormatHint?.ToLowerInvariant() is null or "xls" or "application/vnd.ms-excel" ? new XlsImporter() : null;
+            else if (!hasZipMagic && request.Options is { } options
+                && Path.GetExtension(request.DisplayName).Equals(Path.GetExtension(request.ResourcePath.FileName), StringComparison.OrdinalIgnoreCase)
+                && (request.FormatHint?.ToLowerInvariant() is null or "csv" or "tsv" or "txt" or "delimited" or "delimitedtext" or "text/csv" or "text/tab-separated-values" or "text/plain")
+                && (Path.GetExtension(request.DisplayName).ToLowerInvariant() is ".csv" or ".tsv" or ".txt"))
+                importer = new DelimitedTextImporter(options: ToReadOptions(options));
             if (importer is null)
             {
                 return Result<ImportPreviewDto>.Fail(FormatMismatch());
@@ -227,7 +235,7 @@ public sealed class ManagedImportInspectionAdapter : IImportInspectionPort
         string? hint = request.FormatHint?.Trim().ToLowerInvariant();
         bool hintXlsx = hint is "xlsx" or "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         bool hintText = hint is "csv" or "tsv" or "txt" or "delimited" or "delimitedtext"
-            or "text/csv" or "text/tab-separated-values";
+            or "text/csv" or "text/tab-separated-values" or "text/plain";
         bool knownHint = hint is null || hintXlsx || hintText;
 
         if (!knownHint)
@@ -264,7 +272,7 @@ public sealed class ManagedImportInspectionAdapter : IImportInspectionPort
         ];
 
         return new ImportPreviewDto(
-            preview.Format == ImportFileFormat.Xlsx ? "xlsx" : "delimitedText",
+            preview.Format == ImportFileFormat.Xlsx ? "xlsx" : preview.Format == ImportFileFormat.Xls ? "xls" : "delimitedText",
             [.. preview.Regions.Select(region => region.SheetName)],
             candidates,
             validationIssues: []);
@@ -273,6 +281,9 @@ public sealed class ManagedImportInspectionAdapter : IImportInspectionPort
     private static AppError ResourceNotFound() => new(
         ErrorCodes.ImportManagedResourceNotFound, ErrorSeverity.Blocking,
         "The managed import resource is not available.", "resourceMissing");
+
+    private static ImportReadOptions ToReadOptions(ImportOptionsDto options) =>
+        new(options.EncodingName, options.Delimiter, options.DecimalCulture, options.TimeUnit);
 
     private static AppError SizeMismatch(long declared, long actual) => new(
         ErrorCodes.ImportManagedResourceSizeMismatch, ErrorSeverity.Blocking,

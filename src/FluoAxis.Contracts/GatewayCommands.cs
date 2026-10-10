@@ -50,6 +50,7 @@ public sealed record InspectImportCommand
     public long FileSizeBytes { get; }
     public string RelativeResourcePath { get; }
     public string? FormatHint { get; }
+    public ImportOptionsDto? Options { get; }
     public int ContractVersion { get; }
 
     public InspectImportCommand(
@@ -59,7 +60,8 @@ public sealed record InspectImportCommand
         long fileSizeBytes,
         string relativeResourcePath,
         string? formatHint = null,
-        int contractVersion = Contracts.ContractVersion.Current)
+        int contractVersion = Contracts.ContractVersion.Current,
+        ImportOptionsDto? options = null)
     {
         ContractGuard.RequireNonEmptyGuid(requestId, nameof(requestId));
         ContractGuard.RequireNonEmptyGuid(runId, nameof(runId));
@@ -86,6 +88,7 @@ public sealed record InspectImportCommand
         FileSizeBytes = fileSizeBytes;
         RelativeResourcePath = RelativePath.Parse(relativeResourcePath).Value;
         FormatHint = formatHint;
+        Options = options;
         ContractVersion = contractVersion;
     }
 
@@ -120,6 +123,7 @@ public sealed record ConfirmMappingCommand : CommandBase
 
     /// <summary>Media type of the staged source.</summary>
     public string SourceMediaType { get; }
+    public ImportOptionsDto? Options { get; }
 
     public ConfirmMappingCommand(
         Guid requestId,
@@ -134,7 +138,8 @@ public sealed record ConfirmMappingCommand : CommandBase
         string sourceSha256,
         long sourceSizeBytes,
         string sourceMediaType,
-        int contractVersion = Contracts.ContractVersion.Current)
+        int contractVersion = Contracts.ContractVersion.Current,
+        ImportOptionsDto? options = null)
         : base(requestId, runId, expectedRunRevision, actorId, issuedUtc, contractVersion)
     {
         ArgumentNullException.ThrowIfNull(fam);
@@ -154,6 +159,14 @@ public sealed record ConfirmMappingCommand : CommandBase
         if (!famWells.SequenceEqual(roxWells, StringComparer.Ordinal))
         {
             throw new ArgumentException("FAM and ROX mappings must cover the same logical wells.", nameof(rox));
+        }
+
+        if (string.Equals(fam.SheetName, rox.SheetName, StringComparison.OrdinalIgnoreCase)
+            && Math.Max((long)fam.HeaderRowIndex + 1, (long)rox.HeaderRowIndex + 1)
+                <= Math.Min(fam.EndRowIndex ?? int.MaxValue, rox.EndRowIndex ?? int.MaxValue)
+            && fam.WellColumns.Select(item => item.ColumnIndex).Intersect(rox.WellColumns.Select(item => item.ColumnIndex)).Any())
+        {
+            throw new ArgumentException("FAM and ROX signal cells must not overlap in the same worksheet region.", nameof(rox));
         }
 
         ContractGuard.RequireNonBlank(originalFileName, nameof(originalFileName));
@@ -176,6 +189,7 @@ public sealed record ConfirmMappingCommand : CommandBase
         SourceSha256 = sourceSha256.ToLowerInvariant();
         SourceSizeBytes = sourceSizeBytes;
         SourceMediaType = sourceMediaType;
+        Options = options;
     }
 }
 

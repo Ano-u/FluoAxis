@@ -5,7 +5,7 @@ using FluoAxis.Contracts;
 using FluoAxis.Domain;
 
 /// <summary>In-process implementation of the presentation-to-Application gateway.</summary>
-public sealed partial class ApplicationGateway : IFluoAxisGateway
+public sealed partial class ApplicationGateway : IFluoAxisGateway, IRunEvidenceGateway, IScientificEvidenceGateway
 {
     private readonly IProjectRunRepository repository;
     private readonly IImportInspectionPort? importInspection;
@@ -17,14 +17,23 @@ public sealed partial class ApplicationGateway : IFluoAxisGateway
         IProjectRunRepository repository,
         TimeProvider? timeProvider = null,
         IImportInspectionPort? importInspection = null,
-        ISignalPreparationPort? signalPreparation = null,
-        IAnalysisEngine? engine = null)
+        ISignalPreparationPort? signalPreparation = null)
+        : this(repository, timeProvider, importInspection, signalPreparation, new BrafAnalysisEngine())
+    {
+    }
+
+    public ApplicationGateway(
+        IProjectRunRepository repository,
+        TimeProvider? timeProvider,
+        IImportInspectionPort? importInspection,
+        ISignalPreparationPort? signalPreparation,
+        IAnalysisEngine engine)
     {
         this.repository = repository ?? throw new ArgumentNullException(nameof(repository));
         this.timeProvider = timeProvider ?? TimeProvider.System;
         this.importInspection = importInspection;
         this.signalPreparation = signalPreparation;
-        this.engine = engine ?? new BrafAnalysisEngine();
+        this.engine = engine ?? throw new ArgumentNullException(nameof(engine));
     }
 
     public async Task<GatewayResult<ProjectSnapshotDto>> CreateProjectAsync(
@@ -100,7 +109,7 @@ public sealed partial class ApplicationGateway : IFluoAxisGateway
             command.OriginalFileName,
             command.FileSizeBytes,
             RelativePath.Parse(command.RelativeResourcePath),
-            command.FormatHint);
+            command.FormatHint, command.Options);
         Result<ImportPreviewDto> inspected = await importInspection
             .InspectAsync(request, progress, cancellationToken)
             .ConfigureAwait(false);
@@ -184,7 +193,16 @@ public sealed partial class ApplicationGateway : IFluoAxisGateway
         }
 
         ProjectRunAggregate? aggregate = await repository.GetByRunIdAsync(command.RunId, cancellationToken).ConfigureAwait(false);
-        if (aggregate is null || aggregate.RunRevision != command.ExpectedRunRevision || aggregate.RunState != expectedState)
+        if (aggregate is null)
+        {
+            return null;
+        }
+
+        // An exact retry is allowed to reach the repository's idempotency
+        // record even though the run is now in its terminal state. The
+        // repository still revalidates the complete request identity before
+        // replaying it, so a changed request cannot use this escape hatch.
+        if (aggregate.RunRevision != command.ExpectedRunRevision || aggregate.RunState != expectedState)
         {
             return null;
         }

@@ -106,6 +106,13 @@ public sealed class ManagedSignalPreparationAdapter : ISignalPreparationPort
             bool hasZipMagic = await HasZipMagicAsync(stream, cancellationToken).ConfigureAwait(false);
             bool looksLikeText = !hasZipMagic && await LooksLikeTextAsync(stream, cancellationToken).ConfigureAwait(false);
             IImporter? importer = SelectImporter(request.Source, hasZipMagic, looksLikeText);
+            if (Path.GetExtension(request.Source.DisplayName).Equals(".xls", StringComparison.OrdinalIgnoreCase)
+                && Path.GetExtension(request.Source.ResourcePath.FileName).Equals(".xls", StringComparison.OrdinalIgnoreCase))
+                importer = XlsImporter.HasSignature(stream) ? new XlsImporter() : null;
+            else if (!hasZipMagic && request.Mapping.Options is { } options
+                && Path.GetExtension(request.Source.DisplayName).Equals(Path.GetExtension(request.Source.ResourcePath.FileName), StringComparison.OrdinalIgnoreCase)
+                && (Path.GetExtension(request.Source.DisplayName).ToLowerInvariant() is ".csv" or ".tsv" or ".txt"))
+                importer = new DelimitedTextImporter(options: ToReadOptions(options));
             if (importer is null)
             {
                 return Result<PreparedRunSignals>.Fail(FormatMismatch());
@@ -147,14 +154,17 @@ public sealed class ManagedSignalPreparationAdapter : ISignalPreparationPort
     private static DataMapping ToDataMapping(PreparedDataMapping mapping) => new(
         mapping.RunId,
         ToChannelRegion(mapping.Fam),
-        ToChannelRegion(mapping.Rox));
+        ToChannelRegion(mapping.Rox), mapping.Options is { } options ? ToReadOptions(options) : null);
 
     private static ChannelRegionMapping ToChannelRegion(PreparedChannelRegion region) => new(
         region.Channel,
         region.SheetName,
         region.HeaderRowIndex,
         region.TimeColumnIndex,
-        new Dictionary<int, WellId>(region.WellColumns));
+        new Dictionary<int, WellId>(region.WellColumns), region.EndRowIndex);
+
+    private static ImportReadOptions ToReadOptions(ImportOptionsDto options) =>
+        new(options.EncodingName, options.Delimiter, options.DecimalCulture, options.TimeUnit);
 
     private string? ResolveSafeResource(RelativePath relativePath)
     {

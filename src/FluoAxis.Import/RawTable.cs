@@ -3,7 +3,7 @@ namespace FluoAxis.Import;
 using System.Globalization;
 
 /// <summary>Format-neutral cell produced by every adapter (XLSX SAX, CSV/TSV/TXT).</summary>
-internal readonly record struct RawCell(int ColumnIndex, string? Text, double? Number)
+internal readonly record struct RawCell(int ColumnIndex, string? Text, double? Number, bool AllowTextNumericParsing = true)
 {
     /// <summary>
     /// Numeric view of the cell: the stored number, or a parse of the text
@@ -18,7 +18,7 @@ internal readonly record struct RawCell(int ColumnIndex, string? Text, double? N
             return double.IsFinite(n);
         }
 
-        if (Text is not null && TryParseFinite(Text, out value))
+        if (AllowTextNumericParsing && Text is not null && TryParseFinite(Text, out value))
         {
             return true;
         }

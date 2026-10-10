@@ -45,6 +45,12 @@ public class WellAssignmentTests
     }
 
     [Fact]
+    public void Constructor_rejects_sample_role_without_sample_metadata()
+    {
+        Assert.Throws<ArgumentException>(() => new WellAssignment(new WellId('A', 4), WellRole.Sample, null));
+    }
+
+    [Fact]
     public void SampleAssignment_rejects_blank_id_and_non_positive_replicate_index()
     {
         Assert.Throws<ArgumentException>(() => new SampleAssignment("", null, 1, null, null));

@@ -1,5 +1,7 @@
 namespace FluoAxis.PlotProtocol;
 
+using System.Text.Json.Serialization;
+
 /// <summary>Coordinate dimensionality of one immutable plot-data snapshot.</summary>
 public enum PlotDimensions
 {
@@ -16,14 +18,18 @@ public sealed record PlotDataPoint
     public double? Z { get; }
     public string SeriesId { get; }
     public string? Label { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? ErrorY { get; }
 
-    public PlotDataPoint(string pointId, double x, double y, double? z, string seriesId, string? label = null)
+    public PlotDataPoint(string pointId, double x, double y, double? z, string seriesId, string? label = null, double? errorY = null)
     {
         Guard.Identifier(pointId, nameof(pointId));
         Guard.Identifier(seriesId, nameof(seriesId));
         Guard.Finite(x, nameof(x));
         Guard.Finite(y, nameof(y));
         Guard.Finite(z, nameof(z));
+        Guard.Finite(errorY, nameof(errorY));
+        if (errorY is < 0) throw new ArgumentOutOfRangeException(nameof(errorY), "Error bars must be nonnegative.");
         if (label is not null)
         {
             Guard.BoundedText(label, 512, nameof(label));
@@ -35,6 +41,7 @@ public sealed record PlotDataPoint
         Z = z;
         SeriesId = seriesId;
         Label = label;
+        ErrorY = errorY;
     }
 }
 

@@ -16,13 +16,15 @@ public sealed record PreparedSourceIdentity
     public string Sha256 { get; }
     public long SizeBytes { get; }
     public string MediaType { get; }
+    public DateTimeOffset? ImportedAtUtc { get; }
 
     public PreparedSourceIdentity(
         string displayName,
         RelativePath resourcePath,
         string sha256,
         long sizeBytes,
-        string mediaType)
+        string mediaType,
+        DateTimeOffset? importedAtUtc = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
         ArgumentNullException.ThrowIfNull(resourcePath);
@@ -35,12 +37,15 @@ public sealed record PreparedSourceIdentity
 
         HexHash hash = new(sha256);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sizeBytes);
+        if (importedAtUtc is { Offset: var offset } && offset != TimeSpan.Zero)
+            throw new ArgumentException("Source import time must be UTC.", nameof(importedAtUtc));
 
         DisplayName = displayName;
         ResourcePath = resourcePath;
         Sha256 = hash.Value;
         SizeBytes = sizeBytes;
         MediaType = mediaType;
+        ImportedAtUtc = importedAtUtc;
     }
 }
 
@@ -63,6 +68,7 @@ public sealed record PreparedChannelRegion
 
     /// <summary>0-based column index holding elapsed time in minutes.</summary>
     public int TimeColumnIndex { get; }
+    public int? EndRowIndex { get; }
 
     /// <summary>0-based column index to logical well, for every well included in this region.</summary>
     public IReadOnlyDictionary<int, WellId> WellColumns { get; }
@@ -72,7 +78,8 @@ public sealed record PreparedChannelRegion
         string sheetName,
         int headerRowIndex,
         int timeColumnIndex,
-        IReadOnlyDictionary<int, WellId> wellColumns)
+        IReadOnlyDictionary<int, WellId> wellColumns,
+        int? endRowIndex = null)
     {
         if (!Enum.IsDefined(channel))
         {
@@ -83,6 +90,7 @@ public sealed record PreparedChannelRegion
         ArgumentNullException.ThrowIfNull(wellColumns);
         ArgumentOutOfRangeException.ThrowIfNegative(headerRowIndex);
         ArgumentOutOfRangeException.ThrowIfNegative(timeColumnIndex);
+        if (endRowIndex is { } end && end <= headerRowIndex) throw new ArgumentOutOfRangeException(nameof(endRowIndex));
 
         if (wellColumns.Count == 0)
         {
@@ -98,7 +106,10 @@ public sealed record PreparedChannelRegion
         SheetName = sheetName;
         HeaderRowIndex = headerRowIndex;
         TimeColumnIndex = timeColumnIndex;
-        WellColumns = wellColumns;
+        EndRowIndex = endRowIndex;
+        if (wellColumns.Keys.Any(column => column < 0) || wellColumns.Values.Distinct().Count() != wellColumns.Count)
+            throw new ArgumentException("Mapped columns and logical wells must be unique and non-negative.", nameof(wellColumns));
+        WellColumns = new System.Collections.ObjectModel.ReadOnlyDictionary<int, WellId>(wellColumns.ToDictionary());
     }
 }
 
@@ -108,8 +119,9 @@ public sealed record PreparedDataMapping
     public Guid RunId { get; }
     public PreparedChannelRegion Fam { get; }
     public PreparedChannelRegion Rox { get; }
+    public ImportOptionsDto? Options { get; }
 
-    public PreparedDataMapping(Guid runId, PreparedChannelRegion fam, PreparedChannelRegion rox)
+    public PreparedDataMapping(Guid runId, PreparedChannelRegion fam, PreparedChannelRegion rox, ImportOptionsDto? options = null)
     {
         if (runId == Guid.Empty)
         {
@@ -136,9 +148,18 @@ public sealed record PreparedDataMapping
             throw new ArgumentException("FAM and ROX mappings must cover the same logical wells.", nameof(rox));
         }
 
+        if (string.Equals(fam.SheetName, rox.SheetName, StringComparison.OrdinalIgnoreCase)
+            && Math.Max((long)fam.HeaderRowIndex + 1, (long)rox.HeaderRowIndex + 1)
+                <= Math.Min(fam.EndRowIndex ?? int.MaxValue, rox.EndRowIndex ?? int.MaxValue)
+            && fam.WellColumns.Keys.Intersect(rox.WellColumns.Keys).Any())
+        {
+            throw new ArgumentException("FAM and ROX signal cells must not overlap in the same worksheet region.", nameof(rox));
+        }
+
         RunId = runId;
         Fam = fam;
         Rox = rox;
+        Options = options;
     }
 }
 

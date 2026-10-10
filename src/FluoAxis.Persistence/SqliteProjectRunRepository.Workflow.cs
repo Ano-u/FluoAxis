@@ -60,6 +60,7 @@ public sealed partial class SqliteProjectRunRepository
         {
             await WriteSamplesAsync(connection, transaction, request.RunId, samples, cancellationToken).ConfigureAwait(false);
         }
+        await WriteScientificEvidenceAsync(connection, transaction, request.RunId, payload, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task WriteSourceAsync(
@@ -95,8 +96,8 @@ public sealed partial class SqliteProjectRunRepository
         await using SqliteCommand command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            INSERT INTO signal_point(run_id, channel, well_row, well_column, point_index, elapsed_ticks, rfu)
-            VALUES($runId, $channel, $row, $column, $index, $ticks, $rfu);
+            INSERT INTO signal_point(run_id, channel, well_row, well_column, point_index, elapsed_ticks, rfu,source_row_index,source_column_index)
+            VALUES($runId, $channel, $row, $column, $index, $ticks, $rfu,$sourceRow,$sourceColumn);
             """;
         SqliteParameter runIdParameter = command.Parameters.Add("$runId", SqliteType.Text);
         SqliteParameter channelParameter = command.Parameters.Add("$channel", SqliteType.Integer);
@@ -105,6 +106,8 @@ public sealed partial class SqliteProjectRunRepository
         SqliteParameter indexParameter = command.Parameters.Add("$index", SqliteType.Integer);
         SqliteParameter ticksParameter = command.Parameters.Add("$ticks", SqliteType.Integer);
         SqliteParameter rfuParameter = command.Parameters.Add("$rfu", SqliteType.Real);
+        SqliteParameter sourceRowParameter = command.Parameters.Add("$sourceRow", SqliteType.Integer);
+        SqliteParameter sourceColumnParameter = command.Parameters.Add("$sourceColumn", SqliteType.Integer);
         command.Prepare();
 
         string runIdText = Text(runId);
@@ -121,6 +124,8 @@ public sealed partial class SqliteProjectRunRepository
                 indexParameter.Value = index;
                 ticksParameter.Value = point.Elapsed.Ticks;
                 rfuParameter.Value = point.Rfu;
+                sourceRowParameter.Value = (object?)point.SourceRowIndex ?? DBNull.Value;
+                sourceColumnParameter.Value = (object?)point.SourceColumnIndex ?? DBNull.Value;
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
         }
@@ -133,15 +138,21 @@ public sealed partial class SqliteProjectRunRepository
         PreparedDataMapping mapping,
         CancellationToken cancellationToken)
     {
+        if (mapping.Options is { } options)
+        {
+            await ExecuteAsync(connection, transaction, "INSERT INTO run_import_options(run_id,encoding_name,delimiter,decimal_culture,time_unit) VALUES($run,$encoding,$delimiter,$culture,$unit);",
+                cancellationToken, ("$run", Text(runId)), ("$encoding", options.EncodingName), ("$delimiter", options.Delimiter),
+                ("$culture", options.DecimalCulture), ("$unit", options.TimeUnit)).ConfigureAwait(false);
+        }
         foreach (PreparedChannelRegion region in new[] { mapping.Fam, mapping.Rox })
         {
             int channel = (int)region.Channel;
             await ExecuteAsync(connection, transaction, """
-                INSERT INTO channel_mapping(run_id, channel, sheet_name, header_row_index, time_column_index)
-                VALUES($runId, $channel, $sheet, $header, $time);
+                INSERT INTO channel_mapping(run_id, channel, sheet_name, header_row_index, time_column_index,end_row_index)
+                VALUES($runId, $channel, $sheet, $header, $time,$end);
                 """, cancellationToken,
                 ("$runId", Text(runId)), ("$channel", channel), ("$sheet", region.SheetName),
-                ("$header", region.HeaderRowIndex), ("$time", region.TimeColumnIndex)).ConfigureAwait(false);
+                ("$header", region.HeaderRowIndex), ("$time", region.TimeColumnIndex), ("$end", (object?)region.EndRowIndex ?? DBNull.Value)).ConfigureAwait(false);
 
             foreach ((int columnIndex, WellId well) in region.WellColumns)
             {
@@ -332,7 +343,7 @@ public sealed partial class SqliteProjectRunRepository
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = """
-            SELECT original_file_name, relative_resource_path, sha256, size_bytes, media_type
+            SELECT original_file_name, relative_resource_path, sha256, size_bytes, media_type,imported_utc
             FROM source_file WHERE run_id = $runId LIMIT 1;
             """;
         command.Parameters.AddWithValue("$runId", Text(runId));
@@ -343,7 +354,7 @@ public sealed partial class SqliteProjectRunRepository
                 RelativePath.Parse(reader.GetString(1)),
                 reader.GetString(2),
                 reader.GetInt64(3),
-                reader.GetString(4))
+                reader.GetString(4), ParseTime(reader.GetString(5)))
             : null;
     }
 
@@ -353,7 +364,7 @@ public sealed partial class SqliteProjectRunRepository
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = """
-            SELECT channel, well_row, well_column, elapsed_ticks, rfu
+            SELECT channel, well_row, well_column, elapsed_ticks, rfu,source_row_index,source_column_index
             FROM signal_point
             WHERE run_id = $runId
             ORDER BY well_row, well_column, channel, point_index;
@@ -373,7 +384,8 @@ public sealed partial class SqliteProjectRunRepository
                     grouped[key] = points;
                 }
 
-                points.Add(new SignalPoint(TimeSpan.FromTicks(reader.GetInt64(3)), reader.GetDouble(4)));
+                points.Add(new SignalPoint(TimeSpan.FromTicks(reader.GetInt64(3)), reader.GetDouble(4),
+                    reader.IsDBNull(5) ? null : reader.GetInt32(5), reader.IsDBNull(6) ? null : reader.GetInt32(6)));
             }
         }
 
@@ -390,19 +402,19 @@ public sealed partial class SqliteProjectRunRepository
     {
         await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
         await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        Dictionary<int, (string Sheet, int Header, int Time, Dictionary<int, WellId> Wells)> regions = [];
+        Dictionary<int, (string Sheet, int Header, int Time, int? End, Dictionary<int, WellId> Wells)> regions = [];
 
         await using (SqliteCommand command = connection.CreateCommand())
         {
             command.CommandText = """
-                SELECT channel, sheet_name, header_row_index, time_column_index
+                SELECT channel, sheet_name, header_row_index, time_column_index,end_row_index
                 FROM channel_mapping WHERE run_id = $runId ORDER BY channel;
                 """;
             command.Parameters.AddWithValue("$runId", Text(runId));
             await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                regions[reader.GetInt32(0)] = (reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), []);
+                regions[reader.GetInt32(0)] = (reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.IsDBNull(4) ? null : reader.GetInt32(4), []);
             }
         }
 
@@ -437,8 +449,9 @@ public sealed partial class SqliteProjectRunRepository
 
         return new PreparedDataMapping(
             runId,
-            new PreparedChannelRegion(FluorescenceChannel.Fam, fam.Sheet, fam.Header, fam.Time, fam.Wells),
-            new PreparedChannelRegion(FluorescenceChannel.Rox, rox.Sheet, rox.Header, rox.Time, rox.Wells));
+            new PreparedChannelRegion(FluorescenceChannel.Fam, fam.Sheet, fam.Header, fam.Time, fam.Wells, fam.End),
+            new PreparedChannelRegion(FluorescenceChannel.Rox, rox.Sheet, rox.Header, rox.Time, rox.Wells, rox.End),
+            await ReadImportOptionsAsync(connection, runId, cancellationToken).ConfigureAwait(false));
     }
 
     public async ValueTask<IReadOnlyList<WellAssignment>> GetAssignmentsAsync(Guid runId, CancellationToken cancellationToken)
@@ -609,7 +622,8 @@ public sealed partial class SqliteProjectRunRepository
                 traces.Add(new PersistedTrace(
                     traceId, reader.GetString(1), reader.GetString(2), well.ToString(), reader.GetInt32(5),
                     reader.IsDBNull(6) ? null : reader.GetInt32(6), values, reader.GetString(7),
-                    reader.GetDouble(8), ReadNullable(reader, 9), reader.GetString(10)));
+                    reader.GetDouble(8), ReadNullable(reader, 9), reader.GetString(10),
+                    await ReadTraceProvenanceAsync(connection, traceId, cancellationToken).ConfigureAwait(false)));
             }
         }
 
@@ -641,12 +655,5 @@ public sealed partial class SqliteProjectRunRepository
     private static double? ReadNullable(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetDouble(ordinal);
 
-    private sealed record StoredMutation(Guid RunId, RunMutationRequest Request)
-    {
-        public bool Matches(RunMutationRequest other) =>
-            Request.EventType == other.EventType
-            && Request.ExpectedRunRevision == other.ExpectedRunRevision
-            && Request.ExpectedState == other.ExpectedState
-            && Request.TargetState == other.TargetState;
-    }
+    private sealed record StoredMutation(Guid RunId, RunMutationRequest Request);
 }

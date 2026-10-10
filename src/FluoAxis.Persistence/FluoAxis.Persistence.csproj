@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="FluoAxis.Persistence.Tests" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <ProjectReference Include="..\FluoAxis.Domain\FluoAxis.Domain.csproj" />
     <ProjectReference Include="..\FluoAxis.Application\FluoAxis.Application.csproj" />

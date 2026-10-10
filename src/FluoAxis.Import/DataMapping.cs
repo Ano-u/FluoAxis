@@ -20,6 +20,7 @@ public sealed record ChannelRegionMapping
 
     /// <summary>0-based column index holding elapsed time in minutes.</summary>
     public int TimeColumnIndex { get; }
+    public int? EndRowIndex { get; }
 
     /// <summary>0-based column indices of wells included in this channel, mapped to their well identifiers.</summary>
     public IReadOnlyDictionary<int, WellId> WellColumns { get; }
@@ -29,7 +30,8 @@ public sealed record ChannelRegionMapping
         string sheetName,
         int headerRowIndex,
         int timeColumnIndex,
-        IReadOnlyDictionary<int, WellId> wellColumns)
+        IReadOnlyDictionary<int, WellId> wellColumns,
+        int? endRowIndex = null)
     {
         if (!Enum.IsDefined(channel))
         {
@@ -38,6 +40,7 @@ public sealed record ChannelRegionMapping
 
         ArgumentException.ThrowIfNullOrWhiteSpace(sheetName);
         ArgumentNullException.ThrowIfNull(wellColumns);
+        if (endRowIndex is { } end && end <= headerRowIndex) throw new ArgumentOutOfRangeException(nameof(endRowIndex));
 
         if (headerRowIndex < 0)
         {
@@ -63,7 +66,10 @@ public sealed record ChannelRegionMapping
         SheetName = sheetName;
         HeaderRowIndex = headerRowIndex;
         TimeColumnIndex = timeColumnIndex;
-        WellColumns = wellColumns;
+        EndRowIndex = endRowIndex;
+        if (wellColumns.Keys.Any(column => column < 0) || wellColumns.Values.Distinct().Count() != wellColumns.Count)
+            throw new ArgumentException("Mapped columns and logical wells must be unique and non-negative.", nameof(wellColumns));
+        WellColumns = new System.Collections.ObjectModel.ReadOnlyDictionary<int, WellId>(wellColumns.ToDictionary());
     }
 }
 
@@ -78,8 +84,9 @@ public sealed record DataMapping
     public ChannelRegionMapping Fam { get; }
 
     public ChannelRegionMapping Rox { get; }
+    public ImportReadOptions? Options { get; }
 
-    public DataMapping(Guid runId, ChannelRegionMapping fam, ChannelRegionMapping rox)
+    public DataMapping(Guid runId, ChannelRegionMapping fam, ChannelRegionMapping rox, ImportReadOptions? options = null)
     {
         if (runId == Guid.Empty)
         {
@@ -99,8 +106,17 @@ public sealed record DataMapping
             throw new ArgumentException("The rox mapping must map the Rox channel.", nameof(rox));
         }
 
+        if (string.Equals(fam.SheetName, rox.SheetName, StringComparison.OrdinalIgnoreCase)
+            && Math.Max((long)fam.HeaderRowIndex + 1, (long)rox.HeaderRowIndex + 1)
+                <= Math.Min(fam.EndRowIndex ?? int.MaxValue, rox.EndRowIndex ?? int.MaxValue)
+            && fam.WellColumns.Keys.Intersect(rox.WellColumns.Keys).Any())
+        {
+            throw new ArgumentException("FAM and ROX signal cells must not overlap in the same worksheet region.", nameof(rox));
+        }
+
         RunId = runId;
         Fam = fam;
         Rox = rox;
+        Options = options;
     }
 }

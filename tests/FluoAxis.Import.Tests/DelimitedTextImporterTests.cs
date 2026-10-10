@@ -14,15 +14,17 @@ public class DelimitedTextImporterTests
     private static DataMapping Mapping(int headerRow, params WellId[] wells)
     {
         var wellColumns = new Dictionary<int, WellId>();
+        var roxColumns = new Dictionary<int, WellId>();
         for (int i = 0; i < wells.Length; i++)
         {
             wellColumns[i + 1] = wells[i];
+            roxColumns[i + 1 + wells.Length] = wells[i];
         }
 
         return new DataMapping(
             RunId,
             new ChannelRegionMapping(FluorescenceChannel.Fam, DelimitedTextImporter.BodySheetName, headerRow, 0, wellColumns),
-            new ChannelRegionMapping(FluorescenceChannel.Rox, DelimitedTextImporter.BodySheetName, headerRow, 0, wellColumns));
+            new ChannelRegionMapping(FluorescenceChannel.Rox, DelimitedTextImporter.BodySheetName, headerRow, 0, roxColumns));
     }
 
     private static DelimitedTextImporter Csv() => new();
@@ -90,10 +92,10 @@ public class DelimitedTextImporterTests
     public async Task Read_comma_csv_yields_series()
     {
         string csv = Rows(
-            "Time,A1,A2",
-            "0,100,200",
-            "2,101,201",
-            "4,102,202");
+            "Time,A1,A2,A1_ROX,A2_ROX",
+            "0,100,200,900,800",
+            "2,101,201,901,801",
+            "4,102,202,902,802");
 
         using var stream = CsvStream(csv);
         Result<ImportedDataset> result = await Csv().ReadAsync(stream, Mapping(0, new WellId('A', 1), new WellId('A', 2)), DefaultLimits, CancellationToken.None);
@@ -106,15 +108,18 @@ public class DelimitedTextImporterTests
         Assert.Equal(100, a1Fam.Points[0].Rfu);
         Assert.Equal(TimeSpan.Zero, a1Fam.Points[0].Elapsed);
         Assert.Equal(TimeSpan.FromMinutes(2), a1Fam.Points[1].Elapsed);
+        SignalSeries a1Rox = series.Single(s => s.Channel == FluorescenceChannel.Rox && s.Well == new WellId('A', 1));
+        Assert.Equal(900, a1Rox.Points[0].Rfu);
+        Assert.Equal(902, a1Rox.Points[2].Rfu);
     }
 
     [Fact]
     public async Task Read_quoted_field_with_delimiter_resolves()
     {
         string csv = Rows(
-            "\"Time\",\"A1\"",
-            "0,100",
-            "2,101");
+            "\"Time\",\"A1\",\"A1_ROX\"",
+            "0,100,900",
+            "2,101,901");
 
         using var stream = CsvStream(csv);
         Result<ImportedDataset> result = await Csv().ReadAsync(stream, Mapping(0, new WellId('A', 1)), DefaultLimits, CancellationToken.None);
@@ -128,9 +133,9 @@ public class DelimitedTextImporterTests
     public async Task Read_semicolon_delimiter_detected()
     {
         string csv = Rows(
-            "Time;A1;A2",
-            "0;100;200",
-            "2;101;201");
+            "Time;A1;A2;A1_ROX;A2_ROX",
+            "0;100;200;900;800",
+            "2;101;201;901;801");
 
         using var stream = CsvStream(csv);
         Result<ImportedDataset> result = await Csv().ReadAsync(stream, Mapping(0, new WellId('A', 1), new WellId('A', 2)), DefaultLimits, CancellationToken.None);
@@ -143,9 +148,9 @@ public class DelimitedTextImporterTests
     public async Task Read_non_numeric_cell_fails_closed()
     {
         string csv = Rows(
-            "Time,A1",
-            "0,100",
-            "2,NaN");
+            "Time,A1,A1_ROX",
+            "0,100,900",
+            "2,NaN,901");
 
         using var stream = CsvStream(csv);
         Result<ImportedDataset> result = await Csv().ReadAsync(stream, Mapping(0, new WellId('A', 1)), DefaultLimits, CancellationToken.None);
@@ -157,12 +162,12 @@ public class DelimitedTextImporterTests
     [Fact]
     public async Task Read_column_drift_extra_column_ignored_by_mapping()
     {
-        // A third (unmapped) column appears in one row: the confirmed
+        // A fourth (unmapped) column appears in one row: the confirmed
         // mapping is authoritative, so unmapped extra cells are ignored.
         string csv = Rows(
-            "Time,A1",
-            "0,100",
-            "2,101,202");
+            "Time,A1,A1_ROX",
+            "0,100,900",
+            "2,101,901,202");
 
         using var stream = CsvStream(csv);
         Result<ImportedDataset> result = await Csv().ReadAsync(stream, Mapping(0, new WellId('A', 1)), DefaultLimits, CancellationToken.None);
@@ -174,8 +179,8 @@ public class DelimitedTextImporterTests
     [Fact]
     public async Task Read_row_limit_exceeded_fails()
     {
-        var lines = new List<string> { "Time,A1" };
-        lines.AddRange(Enumerable.Range(0, 50).Select(i => $"{i},100"));
+        var lines = new List<string> { "Time,A1,A1_ROX" };
+        lines.AddRange(Enumerable.Range(0, 50).Select(i => $"{i},100,900"));
 
         ImportLimits small = new(maxRows: 10);
         using var stream = CsvStream(string.Join("\r\n", lines));
@@ -189,9 +194,9 @@ public class DelimitedTextImporterTests
     public async Task Read_negative_rfu_accepted()
     {
         string csv = Rows(
-            "Time,A1",
-            "0,-5",
-            "2,-4");
+            "Time,A1,A1_ROX",
+            "0,-5,900",
+            "2,-4,901");
 
         using var stream = CsvStream(csv);
         Result<ImportedDataset> result = await Csv().ReadAsync(stream, Mapping(0, new WellId('A', 1)), DefaultLimits, CancellationToken.None);
@@ -203,7 +208,7 @@ public class DelimitedTextImporterTests
     [Fact]
     public async Task Read_cancellation_propagates()
     {
-        string csv = Rows("Time,A1", "0,100", "2,101");
+        string csv = Rows("Time,A1,A1_ROX", "0,100,900", "2,101,901");
         using var stream = CsvStream(csv);
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
@@ -213,10 +218,47 @@ public class DelimitedTextImporterTests
     }
 
     [Fact]
+    public async Task Read_time_at_double_long_max_boundary_returns_structured_range_failure()
+    {
+        // long.MaxValue is rounded to 2^63 in binary64, outside TimeSpan.
+        // This exact edge previously escaped the guard and threw on casting.
+        double boundaryMinutes = (double)long.MaxValue / TimeSpan.TicksPerMinute;
+        Assert.Equal((double)long.MaxValue, boundaryMinutes * TimeSpan.TicksPerMinute);
+        string time = boundaryMinutes.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        using var stream = CsvStream(Rows("Time,A1,A1_ROX", "0,100,900", $"{time},101,901"));
+
+        Result<ImportedDataset> result = await Csv().ReadAsync(
+            stream, Mapping(0, new WellId('A', 1)), DefaultLimits, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        AppError error = Assert.Single(result.Errors);
+        Assert.Equal(ImportErrorCodes.ImportInvalidValue, error.Code);
+        Assert.Equal("row=3;field=time;reason=range", error.SafeDetailCode);
+    }
+
+    [Theory]
+    [InlineData(0, double.MaxValue)]
+    [InlineData(-10000000000, 10000000000)]
+    public async Task Read_out_of_range_absolute_or_rebased_time_returns_structured_failure(double firstMinutes, double lastMinutes)
+    {
+        string first = firstMinutes.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        string last = lastMinutes.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        using var stream = CsvStream(Rows("Time,A1,A1_ROX", $"{first},100,900", $"{last},101,901"));
+
+        Result<ImportedDataset> result = await Csv().ReadAsync(
+            stream, Mapping(0, new WellId('A', 1)), DefaultLimits, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        AppError error = Assert.Single(result.Errors);
+        Assert.Equal(ImportErrorCodes.ImportInvalidValue, error.Code);
+        Assert.Equal("row=3;field=time;reason=range", error.SafeDetailCode);
+    }
+
+    [Fact]
     public async Task Read_100k_rows_performance_smoke()
     {
-        var lines = new List<string> { "Time,A1" };
-        lines.AddRange(Enumerable.Range(0, 100_000).Select(i => $"{i * 0.002:0.###},{100 + (i % 50) * 0.1:0.###}"));
+        var lines = new List<string> { "Time,A1,A1_ROX" };
+        lines.AddRange(Enumerable.Range(0, 100_000).Select(i => $"{i * 0.002:0.###},{100 + (i % 50) * 0.1:0.###},{900 + (i % 50) * 0.2:0.###}"));
 
         using var stream = CsvStream(string.Join("\r\n", lines));
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();

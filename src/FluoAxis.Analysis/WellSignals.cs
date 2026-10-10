@@ -1,6 +1,7 @@
 namespace FluoAxis.Analysis;
 
 using FluoAxis.Domain;
+using System.Collections.ObjectModel;
 
 /// <summary>
 /// The dual-channel kinetic data of a single well, as consumed by the
@@ -35,8 +36,21 @@ public sealed record WellSignals
             }
         }
 
+        SignalSeries fam = channels[FluorescenceChannel.Fam];
+        SignalSeries rox = channels[FluorescenceChannel.Rox];
+        if (fam.RunId != rox.RunId)
+        {
+            throw new ArgumentException("FAM and ROX series must belong to the same Run.", nameof(channels));
+        }
+
+        if (fam.Points.Count != rox.Points.Count
+            || fam.Points.Zip(rox.Points).Any(pair => pair.First.Elapsed != pair.Second.Elapsed))
+        {
+            throw new ArgumentException("FAM and ROX series must share the same validated time axis.", nameof(channels));
+        }
+
         Well = well;
-        Channels = channels;
+        Channels = new ReadOnlyDictionary<FluorescenceChannel, SignalSeries>(channels.ToDictionary());
     }
 }
 

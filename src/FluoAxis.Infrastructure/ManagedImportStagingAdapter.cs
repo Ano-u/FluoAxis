@@ -348,6 +348,7 @@ public sealed class ManagedImportStagingAdapter
     private static string? MediaTypeFor(string extension) => extension switch
     {
         ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xls" => "application/vnd.ms-excel",
         ".csv" => "text/csv",
         ".tsv" => "text/tab-separated-values",
         ".txt" => "text/plain",

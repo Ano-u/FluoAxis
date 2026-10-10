@@ -5,9 +5,15 @@ using Microsoft.Data.Sqlite;
 /// <summary>Forward-only SQLite schema initialization for a FluoAxis workspace database.</summary>
 public static class SqliteSchema
 {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
-    public static async Task InitializeAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    public static Task InitializeAsync(SqliteConnection connection, CancellationToken cancellationToken) =>
+        InitializeToVersionAsync(connection, CurrentVersion, cancellationToken);
+
+    internal static Task InitializeLegacyVersion2Async(SqliteConnection connection, CancellationToken cancellationToken) =>
+        InitializeToVersionAsync(connection, 2, cancellationToken);
+
+    private static async Task InitializeToVersionAsync(SqliteConnection connection, int targetVersion, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
         if (connection.State != System.Data.ConnectionState.Open)
@@ -37,7 +43,13 @@ public static class SqliteSchema
         if (version < 2)
         {
             await ExecuteAsync(connection, SchemaV2, cancellationToken, transaction).ConfigureAwait(false);
-            await ExecuteAsync(connection, $"PRAGMA user_version = {CurrentVersion};", cancellationToken, transaction).ConfigureAwait(false);
+            await ExecuteAsync(connection, "PRAGMA user_version = 2;", cancellationToken, transaction).ConfigureAwait(false);
+        }
+
+        if (version < 3 && targetVersion >= 3)
+        {
+            await ExecuteAsync(connection, SchemaV3, cancellationToken, transaction).ConfigureAwait(false);
+            await ExecuteAsync(connection, "PRAGMA user_version = 3;", cancellationToken, transaction).ConfigureAwait(false);
         }
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -66,6 +78,33 @@ public static class SqliteSchema
         command.Transaction = transaction;
         return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    private const string SchemaV3 = """
+        ALTER TABLE signal_point ADD COLUMN source_row_index INTEGER CHECK(source_row_index IS NULL OR source_row_index >= 0);
+        ALTER TABLE signal_point ADD COLUMN source_column_index INTEGER CHECK(source_column_index IS NULL OR source_column_index >= 0);
+        ALTER TABLE channel_mapping ADD COLUMN end_row_index INTEGER CHECK(end_row_index IS NULL OR end_row_index > header_row_index);
+        CREATE TABLE run_import_options (
+            run_id TEXT PRIMARY KEY REFERENCES run_record(run_id) ON DELETE RESTRICT,
+            encoding_name TEXT NOT NULL, delimiter TEXT NOT NULL, decimal_culture TEXT NOT NULL, time_unit TEXT NOT NULL
+        );
+        CREATE TABLE scientific_stage (
+            run_id TEXT NOT NULL REFERENCES run_record(run_id) ON DELETE RESTRICT,
+            stage TEXT NOT NULL CHECK(stage IN ('calibration','control','sample')),
+            evidence_json TEXT NOT NULL, evidence_sha256 TEXT NOT NULL CHECK(length(evidence_sha256)=64),
+            PRIMARY KEY(run_id,stage)
+        );
+        CREATE TABLE scientific_point (
+            run_id TEXT NOT NULL, stage TEXT NOT NULL, well TEXT NOT NULL, channel TEXT NOT NULL CHECK(channel IN ('fam','rox')),
+            point_index INTEGER NOT NULL CHECK(point_index>=0), elapsed_ticks INTEGER NOT NULL, raw_rfu REAL NOT NULL,
+            normalized REAL, source_row_index INTEGER, source_column_index INTEGER, within_band INTEGER CHECK(within_band IS NULL OR within_band IN (0,1)),
+            PRIMARY KEY(run_id,stage,well,channel,point_index),
+            FOREIGN KEY(run_id,stage) REFERENCES scientific_stage(run_id,stage) ON DELETE CASCADE
+        );
+        CREATE TABLE trace_provenance (
+            trace_id TEXT PRIMARY KEY REFERENCES calculation_trace(trace_id) ON DELETE CASCADE,
+            provenance_json TEXT NOT NULL, provenance_sha256 TEXT NOT NULL CHECK(length(provenance_sha256)=64)
+        );
+        """;
 
     private const string SchemaV1 = """
         CREATE TABLE method_snapshot (

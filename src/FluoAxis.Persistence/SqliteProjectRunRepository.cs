@@ -86,7 +86,7 @@ public sealed partial class SqliteProjectRunRepository : IProjectRunRepository, 
                 ProjectRunAggregate replayAggregate = await LoadAggregateAsync(connection, transaction, recorded.RunId, cancellationToken).ConfigureAwait(false)
                     ?? throw new InvalidDataException("A persisted mutation references a missing Run.");
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-                return recorded.Matches(request)
+                return recorded.Request.Matches(request)
                     ? new RunMutationOutcome(replayAggregate, RunMutationFailure.None, IsReplay: true)
                     : RunMutationOutcome.Refused(RunMutationFailure.RequestConflict);
             }
@@ -110,7 +110,7 @@ public sealed partial class SqliteProjectRunRepository : IProjectRunRepository, 
                 return RunMutationOutcome.Refused(RunMutationFailure.WrongState);
             }
 
-            if (!RunStateMachine.CanTransition(request.ExpectedState, request.TargetState))
+            if (!RunStateMachine.IsValidPath(request.TransitionPath, request.ExpectedState, request.TargetState))
             {
                 await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
                 return RunMutationOutcome.Refused(RunMutationFailure.IllegalTransition);
@@ -160,6 +160,24 @@ public sealed partial class SqliteProjectRunRepository : IProjectRunRepository, 
         {
             writeGate.Release();
         }
+    }
+
+    public async ValueTask<StoredRunMutation?> GetMutationAsync(Guid requestId, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteConnection connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using SqliteTransaction transaction = connection.BeginTransaction(deferred: false);
+        StoredMutation? recorded = await LoadMutationAsync(connection, transaction, requestId, cancellationToken).ConfigureAwait(false);
+        if (recorded is null)
+        {
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+
+        ProjectRunAggregate aggregate = await LoadAggregateAsync(connection, transaction, recorded.RunId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidDataException("A persisted mutation references a missing Run.");
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return new StoredRunMutation(recorded.Request, new RunMutationOutcome(aggregate, RunMutationFailure.None, IsReplay: true));
     }
 
     public ValueTask DisposeAsync()

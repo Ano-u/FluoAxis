@@ -40,6 +40,10 @@ using System.Text.Json.Serialization;
 [JsonSerializable(typeof(OperationProgressDto))]
 [JsonSerializable(typeof(ImportPreviewDto))]
 [JsonSerializable(typeof(ProjectSnapshotDto))]
+[JsonSerializable(typeof(RunEvidenceDto))]
+[JsonSerializable(typeof(RunMappingDto))]
+[JsonSerializable(typeof(CalculationTraceDto))]
+[JsonSerializable(typeof(TraceValueDto))]
 [JsonSerializable(typeof(GatewayResult<ProjectSnapshotDto>))]
 [JsonSerializable(typeof(GatewayResult<ImportPreviewDto>))]
 [JsonSerializable(typeof(GatewayResult<RunSnapshotDto>))]
@@ -47,6 +51,7 @@ using System.Text.Json.Serialization;
 [JsonSerializable(typeof(GatewayResult<ControlQcResultDto>))]
 [JsonSerializable(typeof(GatewayResult<IReadOnlyList<SampleAnalysisDto>>))]
 [JsonSerializable(typeof(GatewayResult<GetRunQuery>))]
+[JsonSerializable(typeof(GatewayResult<RunEvidenceDto>))]
 public sealed partial class ContractJsonContext : JsonSerializerContext
 {
     /// <summary>

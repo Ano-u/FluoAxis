@@ -18,6 +18,8 @@
     "resetCameraLastSave3d"
   ];
 
+  const plainText = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+
   function supportsWebGl2() {
     const canvas = document.createElement("canvas");
     return Boolean(canvas.getContext("webgl2"));
@@ -78,7 +80,7 @@
       const trace = {
         type: is3d ? "scatter3d" : useWebGl2D ? "scattergl" : "scatter",
         mode: spec.kind.includes("Line") ? (spec.kind.includes("Scatter") ? "lines+markers" : "lines") : "markers",
-        name: series.label,
+        name: plainText(series.label),
         visible: series.visible,
         x: points.map(point => point.x),
         y: points.map(point => point.y),
@@ -86,6 +88,9 @@
         customdata: points.map(point => point.pointId),
         marker: { size: series.markerSize }
       };
+      if (!is3d && points.some(point => point.errorY != null)) {
+        trace.error_y = { type: "data", array: points.map(point => point.errorY ?? 0), visible: true };
+      }
       if (!is3d) {
         trace.selected = { marker: { color: "#b42318", size: series.markerSize + 3 } };
         trace.unselected = { marker: { opacity: 0.55 } };
@@ -93,7 +98,7 @@
       return trace;
     });
     const axis = value => ({
-      title: { text: value.label },
+      title: { text: plainText(value.label) },
       type: value.scale === "Log" ? "log" : "linear",
       range: value.minimum == null || value.maximum == null
         ? undefined
@@ -102,8 +107,10 @@
           : [value.minimum, value.maximum]
     });
     const layout = {
-      title: { text: spec.title },
+      title: { text: plainText(spec.title) },
       showlegend: spec.showLegend,
+      autosize: true,
+      margin: { l: 75, r: 28, t: 54, b: 62 },
       uirevision: spec.plotId
     };
     if (is3d) {
@@ -161,11 +168,20 @@
     }
   }
 
+  if (typeof ResizeObserver === "function") {
+    const observer = new ResizeObserver(entries => {
+      if (activePlotId && entries.some(entry => entry.contentRect.width > 0 && entry.contentRect.height > 0)) {
+        operationQueue = operationQueue.then(() => Plotly.Plots.resize(plot));
+      }
+    });
+    observer.observe(plot);
+  }
+
   async function exportPlot(message) {
     const requested = message.payload;
     const format = requested.format === "Svg" ? "svg" : "png";
-    if (format === "svg" && (activeKind === "Scatter3D" || activeKind === "Line3D")) {
-      post("plot.error", message, { code: "PLOT_EXPORT_FORMAT_UNAVAILABLE", message: "SVG export is unavailable for 3D plots." });
+    if (format === "svg" && (activeKind === "Scatter3D" || activeKind === "Line3D" || plot.data.some(trace => trace.type === "scattergl"))) {
+      post("plot.error", message, { code: "PLOT_EXPORT_FORMAT_UNAVAILABLE", message: "Use PNG for WebGL plots; vector SVG is unavailable." });
       return;
     }
     let dataUrl = await Plotly.toImage(plot, { format, width: requested.width, height: requested.height, scale: requested.scale });
@@ -190,6 +206,7 @@
   async function setSelection(message) {
     const wanted = new Set(message.payload.pointIds);
     const updates = plot.data.map(trace => {
+      if (wanted.size === 0) return null;
       const selected = [];
       trace.customdata?.forEach((pointId, index) => { if (wanted.has(pointId)) selected.push(index); });
       return selected;

@@ -128,6 +128,29 @@ public class XlsxImporterTests
     }
 
     [Fact]
+    public async Task RoundTrip_one_sheet_with_distinct_channel_columns_preserves_both_signals()
+    {
+        IReadOnlyList<IReadOnlyList<object?>> rows =
+        [
+            ["Time", "A1", "A1_ROX"],
+            (IReadOnlyList<object?>)[0.0, 100.0, 900.0],
+            (IReadOnlyList<object?>)[2.0, 110.0, 920.0],
+        ];
+        byte[] workbook = WorkbookBuilder.Build(new WorkbookBuilder.SheetSpec("Signals", rows));
+        DataMapping mapping = new(
+            Fixture.RunId,
+            new ChannelRegionMapping(FluorescenceChannel.Fam, "Signals", 0, 0, new Dictionary<int, WellId> { [1] = WellId.Parse("A1") }),
+            new ChannelRegionMapping(FluorescenceChannel.Rox, "Signals", 0, 0, new Dictionary<int, WellId> { [2] = WellId.Parse("A1") }));
+        using var stream = new MemoryStream(workbook);
+
+        Result<ImportedDataset> result = await Importer.ReadAsync(stream, mapping, DefaultLimits, CancellationToken.None);
+
+        Assert.True(result.IsSuccess, string.Join("; ", result.Errors.Select(error => error.UserMessage)));
+        Assert.Equal(100.0, result.Value!.Series.Single(series => series.Channel == FluorescenceChannel.Fam).Points[0].Rfu);
+        Assert.Equal(900.0, result.Value.Series.Single(series => series.Channel == FluorescenceChannel.Rox).Points[0].Rfu);
+    }
+
+    [Fact]
     public async Task RoundTrip_first_valid_time_maps_to_zero()
     {
         // Acquisition starting at 120 s: first point must normalize to t=0.

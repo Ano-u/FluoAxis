@@ -252,6 +252,48 @@ public class AnalysisMathTests
         Assert.Equal(ErrorCodes.CalibrationMissingEndpoint, s.Error!.Code);
     }
 
+    [Fact]
+    public void SelectEndpoint_handles_full_timespan_range_without_tick_overflow()
+    {
+        // The subtraction of TimeSpan.MinValue.Ticks and a positive endpoint
+        // used to overflow before Math.Abs could run. The primitive must fail
+        // closed with a structured missing-endpoint result.
+        IReadOnlyList<SignalPoint> points =
+        [
+            new(TimeSpan.MinValue, 1),
+            new(TimeSpan.MaxValue, 2),
+        ];
+
+        EndpointSelection s = AnalysisMath.SelectEndpoint(points, Method);
+
+        Assert.False(s.IsFound);
+        Assert.Equal(ErrorCodes.CalibrationMissingEndpoint, s.Error!.Code);
+    }
+
+    [Fact]
+    public void SelectEndpoint_handles_the_signed_minimum_distance_without_throwing()
+    {
+        long ticks = long.MinValue + TimeSpan.FromMinutes(Method.EndpointMinutes).Ticks;
+        EndpointSelection selection = AnalysisMath.SelectEndpoint([new(TimeSpan.FromTicks(ticks), 1)], Method);
+
+        Assert.False(selection.IsFound);
+        Assert.Equal(ErrorCodes.CalibrationMissingEndpoint, selection.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData(double.NaN, 15)]
+    [InlineData(120, double.PositiveInfinity)]
+    [InlineData(double.MaxValue, 15)]
+    [InlineData(120, double.MaxValue)]
+    public void SelectEndpoint_rejects_invalid_method_copy_without_conversion_exception(double endpoint, double tolerance)
+    {
+        BrafMethodSnapshot invalid = Method with { EndpointMinutes = endpoint, EndpointToleranceSeconds = tolerance };
+        EndpointSelection selection = AnalysisMath.SelectEndpoint([TestWells.P(120, 1)], invalid);
+
+        Assert.False(selection.IsFound);
+        Assert.Equal(ErrorCodes.CalibrationMissingEndpoint, selection.Error!.Code);
+    }
+
     // ---------------------------------------------------------------
     // Window selection: closed interval [90, 120]
     // ---------------------------------------------------------------
@@ -299,6 +341,12 @@ public class AnalysisMathTests
     public void Mean_of_non_finite_values_is_null()
     {
         Assert.Null(AnalysisMath.Mean([1.0, double.NaN]));
+    }
+
+    [Fact]
+    public void Mean_fails_closed_when_sequential_sum_overflows()
+    {
+        Assert.Null(AnalysisMath.Mean([double.MaxValue, double.MaxValue]));
     }
 
     // ---------------------------------------------------------------
